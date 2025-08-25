@@ -26,7 +26,6 @@ for png_path in tqdm(png_paths):
         sub_folder = os.path.dirname(png_path).replace(HPA_data_path, save_path)
         os.makedirs(sub_folder, exist_ok=True)
         io.imsave(os.path.join(sub_folder, os.path.basename(png_path)), img_resized)
-
     print("CPU count:", cpu_count())
     if __name__ == "__main__":
         num_cores = 94

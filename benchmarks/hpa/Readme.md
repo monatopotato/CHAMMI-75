@@ -6,14 +6,12 @@
 accelerate launch --multi_gpu --num_processes=8 accelerate_hpa_features.py
 ```
 
-## For running cell_line evaluation in HPAv23
-
-```
-python train_classification.py -f {saving_metrics_locations} -cc atlas_name
-```
-
-## For running locations evaluation in HPAv23
+## For running protein localization evaluations in mini-hpa
 
 ```
 python train_classification.py -f {saving_metrics_locations} -cc locations -uc all_unique_cats
+
+python train_classification.py -f {saving_metrics_locations} -cc locations -uc challenge_cats
 ```
+
+Note: Saving_metrics_locations needs to be the same folder where the features were extracted out!

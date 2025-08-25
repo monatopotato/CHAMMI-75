@@ -6,6 +6,8 @@
 accelerate launch --multi_gpu --num_processes=8 accelerate_hpa_features.py
 ```
 
+Note: Feature extraction code hangs at the end after features save. Might need to kill the processes on your own after that using keyboard interrupts
+
 ## For running protein localization evaluations in mini-hpa
 
 ```

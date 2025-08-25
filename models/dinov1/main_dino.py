@@ -20,7 +20,6 @@ import time
 import math
 import json
 from pathlib import Path
-import wandb  # Added wandb import
 import numpy as np
 from PIL import Image
 import torch
@@ -32,10 +31,7 @@ from torchvision import datasets, transforms
 from torchvision import models as torchvision_models
 from torchvision.transforms.v2 import Transform
 import sys
-sys.path.append('/scr/vidit/FoundationModels/FoundationModels')
-#sys.path.append("../")
-sys.path.append('/scr/vidit/FoundationModels/FoundationModels')
-#sys.path.append("../")
+sys.path.append("../../")
 from dataset.dataset import IterableImageArchive
 from dataset import dataset_config
 from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
@@ -54,43 +50,9 @@ from vision_transformer import DINOHead
 #os.makedirs("/scratch/cache", exist_ok=True)
 #torch.hub.set_dir("/scratch/cache") 
 
-key = "5cd62073993a6bb2fcd38171138d06dbfce3d3ca"
-wandb.login(key=key)
-
 torchvision_archs = sorted(name for name in torchvision_models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(torchvision_models.__dict__[name]))
-
-def save_sample_images(data_loader, output_dir, max_batches=2):
-    """
-    Iterate over `data_loader` for up to `max_batches` batches,
-    and save each image (or crop) as a .npy array in the specified `output_dir`.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-
-    for batch_idx, batch_data in enumerate(data_loader):
-        # Stop early if we've saved enough batches
-        if batch_idx >= max_batches:
-            break
-
-        # In multi-crop DINO, `batch_data` might be a list of T tensors
-        # e.g. T=2 global + local_crops_number local views
-        if isinstance(batch_data, list):
-            # Each element in batch_data is [batch_size, channels, height, width]
-            for crop_idx, crop_tensor in enumerate(batch_data):
-                for img_idx in range(crop_tensor.size(0)):
-                    # Move to CPU (if on GPU), convert to float32, then to NumPy
-                    img = crop_tensor[img_idx].detach().cpu().float().numpy()
-                    filename = f"batch{batch_idx}_crop{crop_idx}_img{img_idx}.npy"
-                    np.save(os.path.join(output_dir, filename), img)
-        else:
-            # If it's not a list, assume a single tensor [batch_size, C, H, W]
-            for img_idx in range(batch_data.size(0)):
-                img = batch_data[img_idx].detach().cpu().float().numpy()
-                filename = f"batch{batch_idx}_img{img_idx}.npy"
-                np.save(os.path.join(output_dir, filename), img)
-
-    print(f"Saved up to {max_batches} batches of .npy arrays in: {output_dir}")
 
 
 def get_args_parser():
@@ -98,7 +60,7 @@ def get_args_parser():
 
     # Model parameters
     parser.add_argument('--arch', default='vit_small', type=str,
-        choices=['vit_tiny', 'vit_small', 'vit_base'],
+        choices=['vit_tiny', 'vit_small', 'vit_base', 'vit_large'],
         help="""Name of architecture to train. For quick experiments with ViTs,
         we recommend using vit_tiny or vit_small.""")
     parser.add_argument('--patch_size', default=16, type=int, help="""Size in pixels
@@ -176,7 +138,7 @@ def get_args_parser():
     parser.add_argument('--output_dir', default=".", type=str, help='Path to save logs and checkpoints.')
     parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
-    parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
+    parser.add_argument('--num_workers', default=7, type=int, help='Number of data loading workers per GPU.')
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local-rank", default=0, type=int, help="Please ignore and do not set this argument.")
@@ -200,11 +162,6 @@ def train_dino(args):
     print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
 
-
-
-    # Initialize wandb only on the main process
-    if utils.is_main_process():
-        wandb.init(project="Morphem-Foundation-Model", config=vars(args), name="Dino_Small_75ds_Multiscale")
     # ============ preparing data ... ============
 
      # PREV TRANSFORM FROM DINO
@@ -237,13 +194,14 @@ def train_dino(args):
                 dataset_size=args.dataset_size,
                 seed=42
                 )
+    # Debug data distribution
 
     dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=11, worker_init_fn=dataset.worker_init_fn, pin_memory=True, persistent_workers=True, prefetch_factor=4)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=6, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
 
-    #save_sample_images(data_loader, output_dir="/scr/vidit/test_images", max_batches=3)
-    
-    print(f"Data loaded: there are {len(data_loader)} images.")
+    # Calculate actual batches per epoch once and store it
+    batches_per_epoch = len(data_loader)
+    print(f"Data loaded: there are {batches_per_epoch} batches per epoch.")
 
     # ============ building student and teacher networks ... ============
     # we changed the name DeiT-S for ViT-S to avoid confusions
@@ -302,9 +260,6 @@ def train_dino(args):
         p.requires_grad = False
     print(f"Student and Teacher are built: they are both {args.arch} network.")
 
-    # Optionally, watch the student network (only in the main process)
-    if utils.is_main_process():
-        wandb.watch(student)
 
     # ============ preparing loss ... ============
     dino_loss = DINOLoss(
@@ -334,20 +289,18 @@ def train_dino(args):
     lr_schedule = utils.cosine_scheduler(
         args.lr * (args.batch_size_per_gpu * utils.get_world_size()) / 256.,  # linear scaling rule
         args.min_lr,
-        args.epochs, len(data_loader),
+        args.epochs, batches_per_epoch,
         warmup_epochs=args.warmup_epochs,
     )
     wd_schedule = utils.cosine_scheduler(
         args.weight_decay,
         args.weight_decay_end,
-        args.epochs, len(data_loader),
+        args.epochs, batches_per_epoch,
     )
     # momentum parameter is increased to 1. during training with a cosine schedule
     momentum_schedule = utils.cosine_scheduler(args.momentum_teacher, 1,
-                                               args.epochs, len(data_loader))
+                                               args.epochs, batches_per_epoch)
     print(f"Loss, optimizer and schedulers ready.")
-
-    print(args.local_crops_number)
 
     # ============ optionally resume training ... ============
     to_restore = {"epoch": 0}
@@ -365,11 +318,24 @@ def train_dino(args):
     start_time = time.time()
     print("Starting DINO training !")
     for epoch in range(start_epoch, args.epochs):
+        # Synchronize all processes before starting each epoch
+        if utils.get_world_size() > 1:
+            torch.distributed.barrier()
+        
+        print(f"Rank {torch.distributed.get_rank()}: Starting epoch {epoch}")
+        sys.stdout.flush()
 
         # ============ training one epoch of DINO ... ============
         train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
-            epoch, fp16_scaler, args)
+            epoch, fp16_scaler, args, batches_per_epoch)
+        
+        # Synchronize all processes after completing each epoch
+        if utils.get_world_size() > 1:
+            torch.distributed.barrier()
+        
+        print(f"Rank {torch.distributed.get_rank()}: Completed epoch {epoch}")
+        sys.stdout.flush()
 
         # ============ writing logs ... ============
         save_dict = {
@@ -390,8 +356,6 @@ def train_dino(args):
         if utils.is_main_process():
             with (Path(args.output_dir) / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
-            # Log training statistics to wandb
-            wandb.log(log_stats, step=epoch)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
@@ -399,18 +363,27 @@ def train_dino(args):
 
 def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
-                    fp16_scaler, args):
-    metric_logger = utils.MetricLogger(delimiter="  ")
+                    fp16_scaler, args, batches_per_epoch):
     header = 'Epoch: [{}/{}]'.format(epoch, args.epochs)
-    for it, images in enumerate(metric_logger.log_every(data_loader, 10, header)):
+    
+    # Synchronize all processes at the start of each epoch
+    if utils.get_world_size() > 1:
+        torch.distributed.barrier()
+    
+    # Simple metrics tracking
+    total_loss = 0.0
+    num_batches = 0
+    
+    for it, images in enumerate(data_loader):
         # update weight decay and learning rate according to their schedule
-        it = len(data_loader) * epoch + it  # global training iteration
-        if(it == len(lr_schedule)):
+        global_it = batches_per_epoch * epoch + it  # global training iteration
+        if(global_it >= len(lr_schedule)):
+            print(f"Rank {torch.distributed.get_rank()}: Breaking due to lr_schedule limit at iteration {global_it}")
             break
         for i, param_group in enumerate(optimizer.param_groups):
-            param_group["lr"] = lr_schedule[it]
+            param_group["lr"] = lr_schedule[global_it]
             if i == 0:  # only the first group is regularized
-                param_group["weight_decay"] = wd_schedule[it]
+                param_group["weight_decay"] = wd_schedule[global_it]
 
         # move images to gpu
         images = [im.cuda(non_blocking=True) for im in images]
@@ -419,11 +392,11 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
             student_output = student(images)
             loss = dino_loss(student_output, teacher_output, epoch)
-
-        if not math.isfinite(loss.item()):
-            print("Loss is {}, stopping training".format(loss.item()), force=True)
-            sys.exit(1)
-
+        if utils.is_main_process():
+            if not math.isfinite(loss.item()):
+                print("Loss is {}, stopping training".format(loss.item()), force=True)
+                sys.exit(1)
+            
         # student update
         optimizer.zero_grad()
         param_norms = None
@@ -443,22 +416,62 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
                                               args.freeze_last_layer)
             fp16_scaler.step(optimizer)
             fp16_scaler.update()
-
         # EMA update for the teacher
         with torch.no_grad():
-            m = momentum_schedule[it]  # momentum parameter
+            m = momentum_schedule[global_it]  # momentum parameter
             for param_q, param_k in zip(student.module.parameters(), teacher_without_ddp.parameters()):
                 param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 
         # logging
         torch.cuda.synchronize()
-        metric_logger.update(loss=loss.item())
-        metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-        metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+        total_loss += loss.item()
+        num_batches += 1
+        
+        # Print progress every 10 iterations
+        if it % 10 == 0:
+            current_lr = optimizer.param_groups[0]["lr"]
+            current_wd = optimizer.param_groups[0]["weight_decay"]
+            avg_loss = total_loss / num_batches
+            elapsed = time.time() - start_time if 'start_time' in locals() else 0
+            it_per_sec = num_batches / elapsed if elapsed > 0 else 0
+            remaining_batches = batches_per_epoch - it - 1
+            eta_sec = remaining_batches / it_per_sec if it_per_sec > 0 else 0
+            eta_str = str(datetime.timedelta(seconds=int(eta_sec)))
+            print(f"{header} [{it}/{batches_per_epoch}] "
+              f"Loss: {loss.item():.4f} (avg: {avg_loss:.4f}) "
+              f"LR: {current_lr:.6f} WD: {current_wd:.4f} "
+              f"ETA: {eta_str}")
+            sys.stdout.flush()
+        if it == 0:
+            start_time = time.time()
+    
+    # Synchronize all processes at the end of each epoch
+    if utils.get_world_size() > 1:
+        torch.distributed.barrier()
+    
+    # Calculate final metrics
+    if num_batches > 0:
+        avg_loss = total_loss / num_batches
+        final_lr = optimizer.param_groups[0]["lr"]
+        final_wd = optimizer.param_groups[0]["weight_decay"]
+        
+        # For distributed training, we need to gather stats from all processes
+        if utils.get_world_size() > 1:
+            # Convert to tensor for all_reduce
+            loss_tensor = torch.tensor(avg_loss, device='cuda')
+            torch.distributed.all_reduce(loss_tensor, op=torch.distributed.ReduceOp.SUM)
+            avg_loss = (loss_tensor / utils.get_world_size()).item()
+        
+        print(f"Epoch [{epoch}] completed - Average Loss: {avg_loss:.4f}, "
+              f"Final LR: {final_lr:.6f}, Final WD: {final_wd:.4f}")
+        
+        return {
+            'loss': avg_loss,
+            'lr': final_lr,
+            'wd': final_wd
+        }
+    else:
+        return {'loss': 0.0, 'lr': 0.0, 'wd': 0.0}
 
 
 class DINOLoss(nn.Module):
@@ -663,7 +676,6 @@ class TensorAugmentationDINO(object):
             ]
         )
         self.common_normalization = transforms.Compose([
-            v2.RandomResizedCrop(256, scale=(0.9, 1.0), ratio=(0.9, 1.1)),
             v2.ToImageTensor(),
             SaturationNoiseInjector(low=200, high=255),
             PerImageNormalize()

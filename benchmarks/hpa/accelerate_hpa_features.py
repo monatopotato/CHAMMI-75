@@ -16,7 +16,7 @@ from torchvision import transforms
 import argparse
 import yaml
 sys.path.append("../")
-from models import ViTClass, MAEModel, DinoV2, OpenPhenom
+from models import ViTClass, MAEModel, DinoV2, OpenPhenom, get_model
 
 # Initialize accelerator at the top
 accelerator = Accelerator()
@@ -238,19 +238,19 @@ def extract_features(dataloader: torch.utils.data.DataLoader, model_instance: ob
 
 def main():
     parser = argparse.ArgumentParser(description='Extract features using VIT or subcell model')
-    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'openphenom'], default='vit',
+    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'openphenom', 'mae'], default='vit',
                         help='Model to use for feature extraction (default: vit)')
     parser.add_argument('--config_path', type=str, default="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/all_channels_ViT-ProtS-Pool.yaml",
                         help='Path to config file for subcell model (required when using subcell)')
     parser.add_argument('--image_folder', type=str, default="/scr/data/cell_crops",
-                        help='Path to image folder')
+                        help='Path to image folder', required=True)
     parser.add_argument('--output_folder', type=str, default="/scr/data/HPA_features",
-                        help='Output folder for features')
+                        help='Output folder for features', required=True)
     parser.add_argument('--batch_size', type=int, default=2,
                         help='Batch size for processing')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of workers for data loading')
-    parser.add_argument('--model_path', type=str, default="", help = "")
+    parser.add_argument('--model_path', type=str, default="", help = "Path to where the model is located")
     parser.add_argument('--model_size', type=str, choices=['small', 'base'], default='small')
     args = parser.parse_args()
 
@@ -263,17 +263,10 @@ def main():
     print(f"Using device: {accelerator.device}")
 
 # Initialize model on accelerator device
-    if args.model == 'vit':
-        model_instance = ViTClass(device=accelerator.device, weights_path=args.model_path, model_size=args.model_size)
-    elif args.model == 'dinov2':
-        model_instance = DinoV2(device=accelerator.device)
-    elif args.model == 'openphenom':
-        model_instance = OpenPhenom(device=accelerator.device)
-
+    model_instance = get_model(model_name=args.model, device=accelerator.device, model_path=args.model_path, model_size=args.model_size)
     model, transform = model_instance.get_model()
-    model.eval()
     
-    if args.model == 'vit':
+    if args.model == 'vit' or args.model == 'mae':
     # Initialize dataset and dataloader
         dataset = UnZippedImageArchive(
             root_dir=args.image_folder, 

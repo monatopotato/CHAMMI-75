@@ -200,7 +200,7 @@ class MAEModel:
         state_dict = torch.load(os.path.join(weights_path, "checkpoint-latest.pth"), map_location=f"{self.device}" if torch.cuda.is_available() else "cpu")
         self.model.load_state_dict(state_dict["model"], strict=False)
         self.model.eval()
-        self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize()])
+        self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize(), v2.Resize(size=(224, 224), antialias=True)])
 
     def get_model(self):
         return self.model, self.transform

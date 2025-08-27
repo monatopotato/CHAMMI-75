@@ -15,13 +15,13 @@ from accelerate import Accelerator
 from torchvision import transforms
 import argparse
 import yaml
+sys.path.append("../")
+from models import ViTClass, MAEModel, DinoV2, OpenPhenom
 
 # Initialize accelerator at the top
 accelerator = Accelerator()
 
-sys.path.append("../morphem")
-from vision_transformer import vit_small, vit_base
-from vit_pool import ViTPoolModel
+#from vit_pool import ViTPoolModel
 
 import atexit
 
@@ -39,6 +39,10 @@ def cleanup_resources():
 atexit.register(cleanup_resources)
 
 
+
+
+
+'''
 def get_subcell_model(config, model_path=None):
     model = ViTPoolModel(config["model_config"]["vit_model"], config["model_config"]["pool_model"])
     state_dict = torch.load(model_path, map_location="cpu")
@@ -54,45 +58,6 @@ def preprocess_input_subcell(images, per_channel=False):
     images = (images - min_val) / (max_val - min_val + 1e-6)
     return images
 
-
-
-'''
-Class to call DINOv1 model for feature extraction.
-'''
-class ViTClass():
-    def __init__(self, device, model_path, model_size='small'):
-        self.device = device
-        self.model_path = model_path
-
-        # Create model with in_chans=1 to match training setup
-        if model_size == 'small':
-            self.model = vit_small()
-        elif model_size == 'base':
-            self.model = vit_base()
-        remove_prefixes = ["module.backbone.", "module.", "module.head."]
-
-        # Load model weights
-        student_model = torch.load(os.path.join(self.model_path, "checkpoint.pth"), map_location=device)['student']
-        # Remove unwanted prefixes
-        cleaned_state_dict = {}
-        for k, v in student_model.items():
-            new_key = k
-            for prefix in remove_prefixes:
-                if new_key.startswith(prefix):
-                    new_key = new_key[len(prefix):]  # Remove prefix
-            if not new_key.startswith("head.mlp") and not new_key.startswith("head.last_layer"):
-                cleaned_state_dict[new_key] = v  # Keep only valid keys
-        self.model.load_state_dict(cleaned_state_dict, strict=False)
-        self.model.eval()
-        self.model.to(self.device)
-
-    def get_model(self):
-        return self.model
-
-
-'''
-Class to handle subcell model for feature extraction.
-'''
 class SubcellClass():
     def __init__(self, device, config_path):
         self.device = device
@@ -108,47 +73,7 @@ class SubcellClass():
 
     def get_model(self):
         return self.model
-
-
-class PerImageNormalize(nn.Module):
-    def __init__(self, eps=1e-7):
-        super().__init__()
-        self.eps = eps
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Normalize each image independently.
-        
-        Args:
-            x (torch.Tensor): Input tensor of shape (C, H, W) for single image
-                              or (N, C, H, W) for batch of images
-        
-        Returns:
-            torch.Tensor: Normalized tensor of the same shape.
-        """
-        if x.dim() == 3:  # Single image (C, H, W)
-            # Compute mean and std across all pixels and channels
-            mean = x.mean()
-            std = x.std()
-            normalized_x = (x - mean) / (std + self.eps)
-            return normalized_x
-        
-        elif x.dim() == 4:  # Batch of images (N, C, H, W)
-            batch_size = x.shape[0]
-            # Compute mean and std for each image in the batch
-            x_flat = x.view(batch_size, -1)
-            mean = x_flat.mean(dim=1, keepdim=True)
-            std = x_flat.std(dim=1, keepdim=True)
-            
-            # Reshape for broadcasting
-            mean = mean.view(batch_size, 1, 1, 1)
-            std = std.view(batch_size, 1, 1, 1)
-            
-            normalized_x = (x - mean) / (std + self.eps)
-            return normalized_x
-        
-        else:
-            raise ValueError(f"Expected 3D or 4D tensor, got {x.dim()}D tensor with shape {x.shape}")
+'''
 
 def custom_collate_fn(batch):
     """Custom collate function to handle None values"""
@@ -242,20 +167,8 @@ class UnZippedImageArchive(Dataset):
 '''
 New extraction feature function to collate all the features from the GPUs on CPUs as when using SubCell Model, the gpu goes out of memory from the previous method!
 '''
-def extract_features(dataloader: torch.utils.data.DataLoader, output_folder: str, model_type: str = 'vit', config_path: str = None, model_path: str = None, model_size: str = None):
+def extract_features(dataloader: torch.utils.data.DataLoader, model_instance: object, config_path: str = None, model_path: str = None, model_size: str = None, output_folder: str = None):
     """Alternative approach: Save features from each process separately, then combine"""
-
-    # Initialize model on accelerator device
-    if model_type == 'vit':
-        vit_instance = ViTClass(accelerator.device, model_path, model_size)
-        vit_model = vit_instance.get_model()
-        vit_model.eval()
-        vit_model, dataloader = accelerator.prepare(vit_model, dataloader)
-    elif model_type == 'subcell':
-        subcell_instance = SubcellClass(accelerator.device, config_path=config_path)
-        subcell_model = subcell_instance.get_model()
-        subcell_model.eval()
-        subcell_model, dataloader = accelerator.prepare(subcell_model, dataloader)
 
     all_features = []
     all_rows = []
@@ -268,106 +181,64 @@ def extract_features(dataloader: torch.utils.data.DataLoader, output_folder: str
             images, rows = batch_data
             batch_size = images.shape[0]
             num_channels = images.shape[1]
-
-            dim = 384
-
-            if model_size == 'base':
-                dim = 768
-
-            if model_type == 'vit':
-                batch_feat = torch.zeros((batch_size, num_channels * dim), device=accelerator.device)
-                
-                for c in range(num_channels):
-                    single_channel = images[:, c, :, :].unsqueeze(1).float()
-                    
-                    if hasattr(vit_model, 'module'):
-                        output = vit_model.module.forward_features(single_channel)
-                    else:
-                        output = vit_model.forward_features(single_channel)
-                    feat_temp = output["x_norm_clstoken"]
-                    
-                    batch_feat[:, c * dim:(c + 1) * dim] = feat_temp
-                
-                features = batch_feat.cpu()  # Move to CPU immediately
-
-            elif model_type == 'subcell':
-                images = preprocess_input_subcell(images, per_channel=False)
-                with torch.no_grad():
-                    if hasattr(subcell_model, 'module'):
-                        output = subcell_model.module(images)
-                        features = output.feature_vector.cpu()  # Move to CPU immediately
-                    else:
-                        output = subcell_model(images)
-                        features = output.feature_vector.cpu()  # Move to CPU immediately
-                    del images
+            
+            features = model_instance(images)
             
             all_features.append(features)
             all_rows.extend(rows)
     
     # Save this process's data to a temporary file
     if all_features:
-        feature_data = torch.cat(all_features, dim=0)
-    else:
-        if model_type == 'vit':
-            feature_dim = 4 * 384
-        else:
-            feature_dim = 512
-        feature_data = torch.empty((0, feature_dim), dtype=torch.float32)
-    
-    # Save both features and metadata for this process
-    os.makedirs(output_folder, exist_ok=True)
-    process_file = f"{output_folder}/process_{accelerator.process_index}_data.pth"
-    torch.save({
-        'features': feature_data,
-        'metadata': all_rows
-    }, process_file)
-    
-    # Wait for all processes to finish saving
-    accelerator.wait_for_everyone()
-    
-    # Main process combines all files
-    if accelerator.is_main_process:
-        all_features_list = []
-        all_rows_combined = []
+        feature_data = np.concatenate(all_features, axis=0)
+        # Save both features and metadata for this process
+        os.makedirs(output_folder, exist_ok=True)
+        process_file = f"{output_folder}/process_{accelerator.process_index}_data.npz"
+        np.savez_compressed(
+            process_file,
+            features=feature_data,
+            metadata=np.array(all_rows, dtype=object)
+        )
         
-        for i in range(accelerator.num_processes):
-            process_file = f"{output_folder}/process_{i}_data.pth"
-            if os.path.exists(process_file):
-                data = torch.load(process_file, map_location='cpu')
-                if data['features'].shape[0] > 0:  # Only add non-empty tensors
-                    all_features_list.append(data['features'])
-                all_rows_combined.extend(data['metadata'])
-                # Clean up
-                os.remove(process_file)
+        # Wait for all processes to finish saving
+        accelerator.wait_for_everyone()
         
-        # Combine all features
-        if all_features_list:
-            all_features_combined = torch.cat(all_features_list, dim=0)
-        else:
-            if model_type == 'vit':
-                feature_dim = 4 * 384
-            else:
-                feature_dim = 512
-            all_features_combined = torch.empty((0, feature_dim), dtype=torch.float32)
+        # Main process combines all files
+        if accelerator.is_main_process:
+            all_features_list = []
+            all_rows_combined = []
+            
+            for i in range(accelerator.num_processes):
+                process_file = f"{output_folder}/process_{i}_data.npz"
+                if os.path.exists(process_file):
+                    data = np.load(process_file, allow_pickle=True)
+                    features = data['features']
+                    metadata = data['metadata']
+                    if features.shape[0] > 0:  # Only add non-empty arrays
+                        all_features_list.append(features)
+                    all_rows_combined.extend(metadata.tolist())
+                    # Clean up
+                    os.remove(process_file)
+            
+            # Combine all features
+            if all_features_list:
+                all_features_combined = np.concatenate(all_features_list, axis=0)
+            
+            # Save final results
+            torch.save((all_rows_combined, torch.from_numpy(all_features_combined)), f"{output_folder}/all_features.pth")
+            
+            df = pd.DataFrame(all_rows_combined)
+            df.to_csv(f"{output_folder}/metadata.csv", index=False)
+            print(f"Saved {len(all_rows_combined)} samples with {all_features_combined.shape[1]} features")
+            print(f"Saved metadata with shape: {df.shape}")
+            
+            return all_rows_combined, all_features_combined
         
-        # Save final results
-        torch.save((all_rows_combined, all_features_combined), f"{output_folder}/all_features.pth")
-        print(f"Saved {len(all_rows_combined)} samples with {all_features_combined.shape[1]} features")
-        
-        np.save(f"{output_folder}/features.npy", all_features_combined.numpy())
-        
-        df = pd.DataFrame(all_rows_combined)
-        df.to_csv(f"{output_folder}/metadata.csv", index=False)
-        print(f"Saved metadata with shape: {df.shape}")
-        
-        return all_rows_combined, all_features_combined
-    
-    accelerator.wait_for_everyone()
-    return None, None
+        accelerator.wait_for_everyone()
+        return None, None
 
 def main():
     parser = argparse.ArgumentParser(description='Extract features using VIT or subcell model')
-    parser.add_argument('--model', type=str, choices=['vit', 'subcell'], default='vit',
+    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'openphenom'], default='vit',
                         help='Model to use for feature extraction (default: vit)')
     parser.add_argument('--config_path', type=str, default="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/all_channels_ViT-ProtS-Pool.yaml",
                         help='Path to config file for subcell model (required when using subcell)')
@@ -386,66 +257,70 @@ def main():
     # Validate arguments
     if args.model == 'subcell' and args.config_path is None:
         raise ValueError("config_path is required when using subcell model")
+
+    # Print process info
+    print(f"Process {accelerator.process_index} of {accelerator.num_processes} started")
+    print(f"Using device: {accelerator.device}")
+
+# Initialize model on accelerator device
+    if args.model == 'vit':
+        model_instance = ViTClass(device=accelerator.device, weights_path=args.model_path, model_size=args.model_size)
+    elif args.model == 'dinov2':
+        model_instance = DinoV2(device=accelerator.device)
+    elif args.model == 'openphenom':
+        model_instance = OpenPhenom(device=accelerator.device)
+
+    model, transform = model_instance.get_model()
+    model.eval()
     
-    try:
-        # Print process info
-        print(f"Process {accelerator.process_index} of {accelerator.num_processes} started")
-        print(f"Using device: {accelerator.device}")
-        
-        if args.model == 'vit':
-        # Initialize dataset and dataloader
-            dataset = UnZippedImageArchive(
-                root_dir=args.image_folder, 
-                transform=transforms.Compose([
-                    PerImageNormalize(),
-                    v2.Resize(size=(224, 224), antialias=True)
-                ])
-            )
-        else:
-            # For subcell model, use a different transform
-            dataset = UnZippedImageArchive(
-                root_dir=args.image_folder, 
-                transform=None # No transform for subcell model, put after images loaded
-            )
-        
-        # Create dataloader - accelerator will handle the distribution
-        dataloader = torch.utils.data.DataLoader(
-            dataset, 
-            batch_size=args.batch_size, 
-            shuffle=False, 
-            num_workers=args.num_workers,  # Reduce num_workers per GPU since we have multiple GPUs
-            collate_fn=custom_collate_fn,
-            pin_memory=True
+    if args.model == 'vit':
+    # Initialize dataset and dataloader
+        dataset = UnZippedImageArchive(
+            root_dir=args.image_folder, 
+            transform=transform
         )
-        
-        # Extract features
-        rows, feature_data = extract_features(
-            dataloader=dataloader, 
-            output_folder=args.output_folder,
-            model_type=args.model,
-            config_path=args.config_path,
-            model_path=args.model_path,
-            model_size=args.model_size
+    elif args.model == 'dinov2':
+        dataset = UnZippedImageArchive(
+            root_dir=args.image_folder, 
+            transform=v2.Resize(size=(224, 224), antialias=True)
         )
-        
-        if accelerator.is_main_process:
-            print("Feature extraction complete!")
-            if rows is not None:
-                print(f"Total samples processed: {len(rows)}")
-            if feature_data is not None:
-                print(f"Feature tensor shape: {feature_data.shape}")
-        
-        accelerator.wait_for_everyone()
-        #print(f"Process {accelerator.process_index} finished")
-    finally:
-        # Explicit cleanup
-        cleanup_resources()
-        
-        # Final synchronization
-        accelerator.wait_for_everyone()
-        
-        # Explicit process termination for distributed training
-        accelerator.end_training()
+    elif args.model == 'openphenom':
+        dataset = UnZippedImageArchive(
+            root_dir=args.image_folder, 
+            transform=transform
+        )
+
+    # Create dataloader - accelerator will handle the distribution
+    dataloader = torch.utils.data.DataLoader(
+        dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False, 
+        num_workers=args.num_workers,  # Reduce num_workers per GPU since we have multiple GPUs
+        collate_fn=custom_collate_fn,
+        pin_memory=True
+    )
+    
+    model, dataloader = accelerator.prepare(model, dataloader)
+
+    # Extract features
+    rows, feature_data = extract_features(
+        dataloader=dataloader, 
+        model_instance=model_instance,
+        output_folder=args.output_folder,
+        config_path=args.config_path,
+        model_path=args.model_path,
+        model_size=args.model_size
+    )
+    
+    if accelerator.is_main_process:
+        print("Feature extraction complete!")
+        if rows is not None:
+            print(f"Total samples processed: {len(rows)}")
+        if feature_data is not None:
+            print(f"Feature tensor shape: {feature_data.shape}")
+    
+    accelerator.wait_for_everyone()
+    #print(f"Process {accelerator.process_index} finished")
 
 if __name__ == "__main__":
     main()

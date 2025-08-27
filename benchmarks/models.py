@@ -13,6 +13,7 @@ import torch
 import os
 import yaml
 import torchvision
+from torchvision.transforms import v2
 
 torchvision.disable_beta_transforms_warning()
 
@@ -151,11 +152,13 @@ class ViTClass:
                 cleaned_state_dict[new_key] = v  # Keep only valid keys
         self.model.load_state_dict(cleaned_state_dict, strict=False)
         self.model.eval()
-        self.model.to(self.device)
-        self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize()])
+        self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize(), v2.Resize(size=(224, 224), antialias=True)])
 
     def get_model(self):
         return self.model, self.transform
+    
+    def to(self, device):
+        self.model = self.model.to(device)
     
     def __call__(self, images):
         batch_feat = []
@@ -187,11 +190,13 @@ class MAEModel:
         state_dict = torch.load(os.path.join(weights_path, "checkpoint-latest.pth"), map_location=f"cuda:{self.device}" if torch.cuda.is_available() else "cpu")
         self.model.load_state_dict(state_dict["model"], strict=False)
         self.model.eval()
-        self.model.to(self.device)
         self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize()])
 
     def get_model(self):
         return self.model, self.transform
+
+    def to(self, device):
+        self.model = self.model.to(device)
 
     def __call__(self, images):
         batch_feat = []
@@ -259,12 +264,12 @@ class DinoV2(Model):
             return np.concatenate(batch_feat, axis=1)
 
 class OpenPhenom(Model):
-    def __init__(self, config: dict, mode: str = "agg"):
+    def __init__(self, device, mode: str = "agg"):
         super().__init__()
         huggingface_modelpath = "recursionpharma/OpenPhenom"
-        self.model = AutoModel.from_pretrained(huggingface_modelpath, cache_dir=config['models'], trust_remote_code=True)
+        self.model = AutoModel.from_pretrained(huggingface_modelpath, trust_remote_code=True)
         self.model.eval()
-        self.mode = mode  # 'agg' or 'conc'
+        self.mode = 'concat'  # 'agg' or 'conc'
     
     def _scale(self, patches: torch.Tensor): 
         max_vals = torch.amax(patches.to(torch.float32), dim=(1,2,3), keepdim=True)
@@ -293,11 +298,14 @@ class OpenPhenom(Model):
     
     def to(self, device):
         self.model = self.model.to(device)
+
+    def get_model(self):
+        return self.model, None
     
     def __call__(self, patches: torch.Tensor):
         with torch.no_grad():
             embeddings = self._predict(patches)
-            return embeddings.unsqueeze(1)  # Add dim so `get_features` knows this is not for 384 channels
+            return embeddings.detach().cpu()  # Add dim so `get_features` knows this is not for 384 channels
         
 
 class SubCell(Model):

@@ -1,0 +1,1 @@
+accelerate launch --multi_gpu --num_processes=8 extraction.py

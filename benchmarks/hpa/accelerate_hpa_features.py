@@ -18,12 +18,11 @@ import yaml
 sys.path.append("../")
 from models import ViTClass, MAEModel, DinoV2, OpenPhenom, get_model
 
-# Initialize accelerator at the top
-accelerator = Accelerator()
-
 #from vit_pool import ViTPoolModel
 
 import atexit
+
+accelerator = Accelerator()
 
 def cleanup_resources():
     """Clean up resources before exit"""
@@ -253,6 +252,7 @@ def main():
     parser.add_argument('--model_path', type=str, default="", help = "Path to where the model is located")
     parser.add_argument('--model_size', type=str, choices=['small', 'base'], default='small')
     args = parser.parse_args()
+
 
     # Validate arguments
     if args.model == 'subcell' and args.config_path is None:

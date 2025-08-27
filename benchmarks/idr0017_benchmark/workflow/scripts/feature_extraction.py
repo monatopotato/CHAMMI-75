@@ -53,8 +53,8 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
         patches:torch.Tensor = patches.squeeze(0).to(cfg['device'])
         
         features = process_image_patches(model, patches, cfg).detach().cpu()
-        if features.shape[1] > 1:    
-            # this is for single channel models
+        if features.shape[1] > 1:                                                                   # MAKE CHANGES HERE,
+            # this is for single channel models.                                                        Remove this if case when making the change
             for image_path, image_idx in zip(image_paths, range(features.shape[1])):
                 single_image_features = features[:,image_idx,:]
                 if feature_config['feature_agg']:
@@ -62,7 +62,7 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
                 image_st[os.path.basename(image_path[0])] = single_image_features.contiguous()
         else:
             # this is for channel adaptive models
-            features = features.squeeze(1).contiguous()
+            features = features.squeeze(1).contiguous()                                                 # Remove the squeeze
             if feature_config['feature_agg']:
                 features = features.mean(dim=0)
                 

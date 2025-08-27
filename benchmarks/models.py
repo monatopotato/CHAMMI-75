@@ -156,6 +156,16 @@ class ViTClass:
 
     def get_model(self):
         return self.model, self.transform
+
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
     
     def to(self, device):
         self.model = self.model.to(device)
@@ -187,7 +197,7 @@ class MAEModel:
                 f"Only small, base, and large sized models are supported, not {model_size}"
             )
         
-        state_dict = torch.load(os.path.join(weights_path, "checkpoint-latest.pth"), map_location=f"cuda:{self.device}" if torch.cuda.is_available() else "cpu")
+        state_dict = torch.load(os.path.join(weights_path, "checkpoint-latest.pth"), map_location=f"{self.device}" if torch.cuda.is_available() else "cpu")
         self.model.load_state_dict(state_dict["model"], strict=False)
         self.model.eval()
         self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize()])
@@ -197,6 +207,16 @@ class MAEModel:
 
     def to(self, device):
         self.model = self.model.to(device)
+    
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
 
     def __call__(self, images):
         batch_feat = []
@@ -250,6 +270,16 @@ class DinoV2(Model):
     def get_model(self):
         return self.model, None
     
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
+    
     def __call__(self, patches: torch.Tensor):
         with torch.no_grad():
             patches = self._scale(patches)
@@ -269,7 +299,9 @@ class OpenPhenom(Model):
         huggingface_modelpath = "recursionpharma/OpenPhenom"
         self.model = AutoModel.from_pretrained(huggingface_modelpath, trust_remote_code=True)
         self.model.eval()
-        self.mode = 'concat'  # 'agg' or 'conc'
+        self.mode = 'conc'  # 'agg' or 'conc'
+        self.feature_file = f"pretrained_openphenom_{self.mode}_features.npy"
+        self.device = device
     
     def _scale(self, patches: torch.Tensor): 
         max_vals = torch.amax(patches.to(torch.float32), dim=(1,2,3), keepdim=True)
@@ -278,6 +310,8 @@ class OpenPhenom(Model):
     def _normalize(self, patches: torch.Tensor):
         instance_norm = nn.InstanceNorm2d(patches.shape[1])
         return instance_norm(patches)
+
+
     
     def _predict_agg(self, patches: torch.Tensor) -> torch.Tensor:
         X = self.model.encoder.vit_backbone.forward_features(patches)  # 3D tensor N x num_tokens x dim
@@ -295,14 +329,30 @@ class OpenPhenom(Model):
         patches = self._scale(patches)
         patches = self._normalize(patches)
         return self._predict_agg(patches) if self.mode == "agg" else self._predict_conc(patches)
+
+    def get_patch_info(self):
+        patch_embed = self.model.patch_size
+        print("patch_embed", patch_embed)
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
     
     def to(self, device):
         self.model = self.model.to(device)
+
+    def get_patch_info(self):
+        patch_height, patch_width = self.model.patch_size, self.model.patch_size
+        return patch_height, patch_width
 
     def get_model(self):
         return self.model, None
     
     def __call__(self, patches: torch.Tensor):
+        patches = patches.to(self.device)
         with torch.no_grad():
             embeddings = self._predict(patches)
             return embeddings.detach().cpu()  # Add dim so `get_features` knows this is not for 384 channels
@@ -428,3 +478,21 @@ class SubCell(Model):
         embedding = output.pool_op[0].cpu().numpy()
         # save_attention_map(output.pool_attn, (cell_crop.shape[2], cell_crop.shape[3]), output_path)
         return np.array(embedding)
+
+
+'''
+Uniform get model function which can be called from any of the benchmarks!
+'''
+
+def get_model(model_name: str = None, device: torch.device = None, model_path: str = None, model_size: str = "small", model_type: str = "conc"):
+    if model_name == "mae":
+        model = MAEModel(device=device, weights_path=model_path, model_size=model_size)
+    elif model_name == "vit":
+        model = ViTClass(device=device, weights_path=model_path, model_size=model_size)
+    elif model_name == "dinov2":
+        model = DinoV2(device=device)
+    elif model_name == "openphenom":
+        model = OpenPhenom(device=device, mode=model_type)
+    else:
+        raise ValueError("Model not recognized. Please use 'mae', 'vit', 'dinov2', or 'openphenom'.")
+    return model

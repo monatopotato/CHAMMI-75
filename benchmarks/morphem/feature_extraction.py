@@ -19,7 +19,7 @@ import sys
 import folded_dataset
 import torch
 sys.path.append("../")
-from models import ViTClass, MAEModel, DinoV2
+from models import ViTClass, MAEModel, DinoV2, get_model
 import timm  # If you used timm to define your ViT
 import os
 
@@ -68,14 +68,10 @@ def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size):
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
-    if model_check == "mae":
-        model_instance = MAEModel(device=gpu, weights_path=args.model_path, model_size=args.model_size) 
-    elif model_check == "vit":
-        model_instance = ViTClass(device=gpu, weights_path=args.model_path, model_size=args.model_size)
-    elif model_check == "dinov2":
-        model_instance = DinoV2(device=gpu)
-    model, transform = model_instance.get_model() 
+    model_instance = get_model(model_name=model_check, device=device, model_path=args.model_path, model_size=args.model_size)
+    model, transform = model_instance.get_model()
     feature_file = model_instance.feature_file
+    model = model.to(device)
         
  
     for dataset_name in dataset_names:
@@ -85,14 +81,7 @@ def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size):
         
         all_feat = []
         for images, label in tqdm(train_dataloader, total=len(train_dataloader)):
-            patch_embed = model.patch_embed
-
-            # Access the Conv2d layer within PatchEmbed
-            conv_layer = patch_embed.proj
-            
-            # Extract kernel size (patch size)
-            patch_size = conv_layer.kernel_size
-            patch_height, patch_width = patch_size
+            patch_height, patch_width = model_instance.get_patch_info()
             images = create_pad(images, patch_width, patch_height)
 
             batch_feat = model_instance(images)
@@ -119,11 +108,11 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root_dir", type=str, help="The root directory of the original images", required=True)
     parser.add_argument("--feat_dir", type=str, help="The directory that contains the features", required=True)
-    parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (convnext, resnet, or vit)", required=True, choices=['mae', 'resnet', 'vit', 'dinov2'])
+    parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (mae, openphenom, dinov2 or vit)", required=True, choices=['mae', 'vit', 'dinov2', 'openphenom'])
     parser.add_argument("--gpu", type=int, help="The gpu that is currently available/not in use", required=True)
     parser.add_argument("--batch_size", type=int, default=64, help="Select a batch size that works for your gpu size", required=True)
     parser.add_argument("--model_size", type=str, default="small", help="Size of the ViT model (small or base)", choices=['small', 'base', 'large'])
-    parser.add_argument("--model_path", type=str, help="Path to the model weights", required=True)
+    parser.add_argument("--model_path", type=str, help="Path to the model weights", required=False)
 
     return parser
 

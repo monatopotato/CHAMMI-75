@@ -108,7 +108,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root_dir", type=str, help="The root directory of the original images", required=True)
     parser.add_argument("--feat_dir", type=str, help="The directory that contains the features", required=True)
-    parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (mae, openphenom, dinov2 or vit)", required=True, choices=['mae', 'vit', 'dinov2', 'openphenom'])
+    parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (mae, openphenom, dinov2 or vit)", required=True, choices=['mae', 'vit', 'dinov2', 'dinov3', 'openphenom'])
     parser.add_argument("--gpu", type=int, help="The gpu that is currently available/not in use", required=True)
     parser.add_argument("--batch_size", type=int, default=64, help="Select a batch size that works for your gpu size", required=True)
     parser.add_argument("--model_size", type=str, default="small", help="Size of the ViT model (small or base)", choices=['small', 'base', 'large'])

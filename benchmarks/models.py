@@ -268,7 +268,7 @@ class DinoV2(Model):
         self.model = self.model.to(device)
     
     def get_model(self):
-        return self.model, None
+        return self.model, v2.Resize(size=(224, 224), antialias=True)
     
     def get_patch_info(self):
         patch_embed = self.model.patch_embed
@@ -292,6 +292,66 @@ class DinoV2(Model):
                 batch_feat.append(self.model.forward_features(single_channel_patches)['x_norm_clstoken'].detach().cpu())
         
             return np.concatenate(batch_feat, axis=1)
+
+
+class DINOv3(Model):
+    def __init__(self, device, repo_dir: str = "/scr/vidit/dinov3", weights: str = "/scr/vidit/dinov3_vits16_pretrain_lvd1689m-08c60483.pth"):
+        super().__init__()
+
+        self.repo_dir = repo_dir
+        self.weights = weights
+        import torch
+        self.model = torch.hub.load(self.repo_dir, 'dinov3_vits16', source='local', weights=self.weights)
+        self.model.eval()
+        self.model = self.model.to(device)  # Move model to GPU
+        self.device = device
+        
+        self.mean = [0.485, 0.456, 0.406]
+        self.std = [0.229, 0.224, 0.225]
+
+        self.feature_file = "pretrained_dinov2_features.npy"
+    def _to_rgb(self, patches: torch.Tensor):
+        return patches.expand(-1, 3, -1, -1)
+        
+    def _normalize(self, patches: torch.Tensor):
+        normalized_tensor = F.normalize(patches, mean=self.mean, std=self.std)
+        return normalized_tensor
+    
+    def _scale(self, patches: torch.Tensor): 
+        max_vals = torch.amax(patches.to(torch.float32), dim=(1,2,3)).view(patches.shape[0], 1, 1 ,1)
+        normalized_patches = patches/max_vals        
+        return normalized_patches
+    
+    def to(self, device):
+        self.model = self.model.to(device)
+    
+    def get_model(self):
+        return self.model, v2.Resize(size=(224, 224), antialias=True)
+
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
+    
+    def __call__(self, patches: torch.Tensor):
+        with torch.no_grad():
+            patches = self._scale(patches)
+            patches = patches.to(self.device)  # Move input to GPU
+            features = []
+            batch_feat = []
+            for image_idx in range(patches.shape[1]):
+                single_channel_patches = self._to_rgb(patches[:,image_idx,:,:].unsqueeze(1))    
+                single_channel_patches = self._normalize(single_channel_patches)
+                batch_feat.append(self.model.forward_features(single_channel_patches)['x_norm_clstoken'].detach().cpu())
+        
+            return np.concatenate(batch_feat, axis=1)
+
+
 
 class OpenPhenom(Model):
     def __init__(self, device, mode: str = "agg"):
@@ -493,6 +553,8 @@ def get_model(model_name: str = None, device: torch.device = None, model_path: s
         model = DinoV2(device=device)
     elif model_name == "openphenom":
         model = OpenPhenom(device=device, mode=model_type)
+    elif model_name == "dinov3":
+        model = DINOv3(device=device)
     else:
         raise ValueError("Model not recognized. Please use 'mae', 'vit', 'dinov2', or 'openphenom'.")
     return model

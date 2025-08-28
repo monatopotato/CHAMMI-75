@@ -309,7 +309,7 @@ class DINOv3(Model):
         self.mean = [0.485, 0.456, 0.406]
         self.std = [0.229, 0.224, 0.225]
 
-        self.feature_file = "pretrained_dinov2_features.npy"
+        self.feature_file = "pretrained_dinov3_features.npy"
     def _to_rgb(self, patches: torch.Tensor):
         return patches.expand(-1, 3, -1, -1)
         

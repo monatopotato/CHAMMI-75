@@ -71,7 +71,7 @@ def extract_embeddings(dataloader, model, accelerator):
 
 def main():
     parser = argparse.ArgumentParser(description='Extract features using VIT or subcell model')
-    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'openphenom', 'mae'], default='vit',
+    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'openphenom', 'mae', 'dinov3'], default='vit',
                         help='Model to use for feature extraction (default: vit)')
     parser.add_argument('--config_path', type=str, default="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/all_channels_ViT-ProtS-Pool.yaml",
                         help='Path to config file for subcell model (required when using subcell)')

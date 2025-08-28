@@ -6,12 +6,41 @@ from tqdm import tqdm
 import pickle
 import argparse
 from accelerate import Accelerator
+import torch.nn.functional as F
 
 from dataloader import CellDataset, ToTensorNormalize
 import sys
 sys.path.append("../")
 from models import ViTClass, get_model
 import os
+
+def create_pad(images, patch_width, patch_height): # new method for vit model
+    N, C, H, W = images.shape
+
+    new_width = ((W + patch_width - 1) // patch_width) * patch_width
+    pad_width = new_width - W
+
+    # Calculate padding amounts for left and right
+    pad_left = pad_right = pad_width // 2
+    
+    if pad_width % 2 != 0:
+        pad_right += 1
+
+
+    new_height = ((H + patch_height - 1) // patch_height) * patch_height
+    pad_height = new_height - H
+    
+    # Calculate padding amounts for top and bottom
+    pad_top = pad_bottom = pad_height // 2
+    
+    if pad_height % 2 != 0:
+        pad_bottom += 1
+        
+
+    padded_images = F.pad(images, (pad_left, pad_right, pad_top, pad_bottom), mode='constant', value=0)
+    
+    return padded_images
+
 
 def extract_embeddings(dataloader, model, accelerator):
     embeddings = []
@@ -28,6 +57,12 @@ def extract_embeddings(dataloader, model, accelerator):
     for data in iterator:
         image_tensor = data['image_tensor']  # Remove batch dimension: [N_CH, 64, 64]
         
+
+        patch_height, patch_width = model.get_patch_info()
+
+        image_tensor = create_pad(image_tensor, patch_width, patch_height)  # [N_CH, H_pad, W_pad]
+
+
         image_embedding = model(image_tensor.to(accelerator.device))  # [N_CH, D]
         metadata = {k: data[k] for k in data if k != 'image_tensor'}
         embeddings.append({'embedding': image_embedding, 'metadata': metadata})
@@ -44,8 +79,6 @@ def main():
                         help='Path to image folder', required=True)
     parser.add_argument('--output_folder', type=str, default="/scr/data/HPA_features",
                         help='Output folder for features', required=True)
-    parser.add_argument('--batch_size', type=int, default=2,
-                        help='Batch size for processing')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of workers for data loading')
     parser.add_argument('--model_path', type=str, default="", help = "Path to where the model is located")
@@ -65,18 +98,17 @@ def main():
         mode='test',
         mask_flag=True
     )
-    print("Masking parm is on!")
 
     # Create DataLoaders
     train_dataloader = DataLoader(
         train_dataset, 
-        batch_size=args.batch_size, 
+        batch_size=1, 
         shuffle=False,
         num_workers=args.num_workers  # Start with 0 for debugging, increase later if needed
     )
     test_dataloader = DataLoader(
         test_dataset, 
-        batch_size=args.batch_size, 
+        batch_size=1, 
         shuffle=False,
         num_workers=args.num_workers
     )

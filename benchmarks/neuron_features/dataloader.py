@@ -20,30 +20,24 @@ class ToTensorNormalize(object):
 
 
 class PerImageNormalize(object):
-    """Apply per-image instance normalization."""
     def __init__(self, eps=1e-7):
         self.eps = eps
     
     def __call__(self, sample):
-        image_tensor = sample['image']  # NumPy array
+        image_tensor = sample['image']
+        image_tensor = torch.from_numpy(image_tensor).float()
         
-        # Convert to torch tensor
-        image_tensor = torch.from_numpy(image_tensor)
+        if len(image_tensor.shape) == 4:  # Batch of images [B, C, H, W]
+            # Normalize each image in the batch independently
+            B, C, H, W = image_tensor.shape
+            mean = torch.mean(image_tensor, dim=(2, 3), keepdim=True)  # [B, C, 1, 1]
+            std = torch.std(image_tensor, dim=(2, 3), keepdim=True)    # [B, C, 1, 1]
+        else:  # Single image [C, H, W]
+            mean = torch.mean(image_tensor, dim=(1, 2), keepdim=True)
+            std = torch.std(image_tensor, dim=(1, 2), keepdim=True)
         
-        # Convert to float32 for computation (uint8 -> float32)
-        image_tensor = image_tensor.to(dtype=torch.float32)
-        
-        # Get dimensions
-        N_CH, H, W = image_tensor.shape
-        
-        # Compute mean and std across spatial dimensions for each channel
-        mean = torch.mean(image_tensor, dim=(1, 2), keepdim=True)
-        std = torch.std(image_tensor, dim=(1, 2), keepdim=True, unbiased=False)
-        
-        # Normalize: (x - mean) / std
         normalized_tensor = (image_tensor - mean) / (std + self.eps)
-        
-        return normalized_tensor.view(N_CH, H, W)
+        return normalized_tensor
 
 class CellDataset(Dataset):
     def __init__(self, datadir, mode='train', transform=PerImageNormalize(), mask_flag = True): 

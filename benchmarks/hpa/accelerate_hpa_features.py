@@ -237,8 +237,8 @@ def extract_features(dataloader: torch.utils.data.DataLoader, model_instance: ob
 
 def main():
     parser = argparse.ArgumentParser(description='Extract features using VIT or subcell model')
-    parser.add_argument('--model', type=str, choices=['vit', 'subcell', 'dinov2', 'dinov3', 'openphenom', 'mae'], default='vit',
-                        help='Model to use for feature extraction (default: vit)')
+    parser.add_argument('--model', type=str, default='vit',
+                        help='Model to use for feature extraction (default: vit)') # Choices to get from 'mae', 'subcell', 'vit', 'dinov2', 'dinov3', 'openphenom'
     parser.add_argument('--config_path', type=str, default="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/all_channels_ViT-ProtS-Pool.yaml",
                         help='Path to config file for subcell model (required when using subcell)')
     parser.add_argument('--image_folder', type=str, default="/scr/data/cell_crops",

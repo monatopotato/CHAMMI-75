@@ -6,14 +6,14 @@ import numpy as np
 from tqdm import tqdm
 from config import load_config
 from torch.utils.data import DataLoader, Dataset
-from models import Model
 import safetensors
 import sys
-sys.path.append("../../../")
-from models import get_model
+import sys
+target_path = os.path.abspath("../../")
+sys.path.append(target_path)
+from models import get_model, Model
 from data.dataset.dataset import FeatureExtractionDataset
-    
-    
+
 def process_image_patches(model: Model, batch, cfg):
     """
     Processes a batch of patches and extracts features using a given model.
@@ -33,12 +33,18 @@ def process_image_patches(model: Model, batch, cfg):
 
     minibatches = torch.split(batch, cfg['feature_extraction']['resources']['batch_size'], dim=0)
         
-    features = []
+    features = None  # Initialize as None
     for minibatch in minibatches:
-        features.append(model(minibatch))
+        minibatch_features = model(minibatch)
+        
+        if features is None:
+            # First iteration - initialize the features tensor
+            features = minibatch_features
+        else:
+            # Subsequent iterations - concatenate
+            features = torch.cat([features, minibatch_features], dim=0)
 
-    return torch.cat(features, dim=0) 
-
+    return features
  
 
 def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_name=str) -> None:    
@@ -54,21 +60,15 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
     for patches, image_paths, multi_channel_id in tqdm(dataloader, desc=f"Getting {feature_config['model']} features", total=len(dataloader)):
         patches:torch.Tensor = patches.squeeze(0).to(cfg['device'])
         
-        features = process_image_patches(model, patches, cfg).detach().cpu()
-        if features.shape[1] > 1:                                                                   # MAKE CHANGES HERE,
-            # this is for single channel models.                                                        Remove this if case when making the change
-            for image_path, image_idx in zip(image_paths, range(features.shape[1])):
-                single_image_features = features[:,image_idx,:]
-                if feature_config['feature_agg']:
-                    single_image_features = single_image_features.mean(dim=0)
-                image_st[os.path.basename(image_path[0])] = single_image_features.contiguous()
-        else:
-            # this is for channel adaptive models
-            features = features.squeeze(1).contiguous()                                                 # Remove the squeeze
-            if feature_config['feature_agg']:
-                features = features.mean(dim=0)
-                
-            image_st[multi_channel_id[0]] = features
+        features = process_image_patches(model, patches, cfg)
+
+        features = torch.tensor(features)
+        features = features.contiguous()                            
+
+        if feature_config['feature_agg']:
+            features = features.mean(dim=0)
+            
+        image_st[multi_channel_id[0]] = features
     
     output_file = os.path.join(out_folder, f"{out_name}_features.safetensors")
     safetensors.torch.save_file(image_st, output_file)
@@ -88,7 +88,7 @@ def main(cfg, snake_in:str , snake_out: str, snake_model:str):
     model = model_instance
     _, transforms = model_instance.get_model()
 
-    # DO this after I get my transform from the model instance
+    # Do this after I get my transform from the model instance
     dataset = FeatureExtractionDataset(cfg, snake_in, transform=transforms)
 
     if model is None:

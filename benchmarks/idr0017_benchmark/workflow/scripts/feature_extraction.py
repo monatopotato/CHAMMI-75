@@ -75,7 +75,6 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
 
 
 def main(cfg, snake_in:str , snake_out: str, snake_model:str):
-    os.environ['TORCH_HOME'] = cfg['models']
     plate = os.path.basename(snake_in)
 
 

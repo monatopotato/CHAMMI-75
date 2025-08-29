@@ -3,7 +3,6 @@ out_folder: /scr/data/75ds_test/idr0017/study_replication
 cache: /scr/vidit/cache
 study: /scr/data/75ds_test/idr0017/images
 metadata: /scr/data/75ds_test/idr0017/metadata/idr0017_meta.csv
-models: /mnt/cephfs/mir/jcaicedo/morphem/dataset/models
 
 feature_extraction:
   # add in parameters needed for feature extraction

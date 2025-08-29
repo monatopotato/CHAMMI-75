@@ -8,10 +8,6 @@ import shutil
 def path_expansion(path:str):
     return os.path.normpath(os.path.abspath(os.path.expanduser(path)))
 
-# Load models from here
-from torch import hub
-hub.set_dir(config['models'])
-
 if '--configfile' in sys.argv:
     i = sys.argv.index('--configfile')
 elif '--configfiles' in sys.argv:
@@ -19,7 +15,6 @@ elif '--configfiles' in sys.argv:
 
 config_path = path_expansion(argv[i + 1])
 plate_dir = os.path.basename(path_expansion(config['study']))
-model_dir = path_expansion(config['models'])
 cache_dir = path_expansion(config['cache'])
 out_abs_path = path_expansion(config['out_folder'])
 
@@ -91,7 +86,7 @@ rule feature_extraction:
         if not os.path.exists(feature_cache):
             shell(f"mkdir -p {feature_cache}")
             
-        shell(f"python {feature_script} -s {cache_out} -o {feature_cache} -c {config_path} -m {model_dir} {gpu_assign}")
+        shell(f"python {feature_script} -s {cache_out} -o {feature_cache} -c {config_path} {gpu_assign}")
 
         shell(f"mkdir -p {job_out}")
         shell(f"cp {os.path.join(feature_cache, f'{wildcards.name}_features.safetensors')} {job_out}")

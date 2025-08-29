@@ -392,7 +392,6 @@ class OpenPhenom(Model):
 
     def get_patch_info(self):
         patch_embed = self.model.patch_size
-        print("patch_embed", patch_embed)
         # Access the Conv2d layer within PatchEmbed
         conv_layer = patch_embed.proj
         

@@ -171,14 +171,16 @@ class ViTClass:
         self.model = self.model.to(device)
     
     def __call__(self, images):
-        batch_feat = []
-        for c in range(images.shape[1]):
-            single_channel = images[:, c, :, :].unsqueeze(1).to(self.device)
+        with torch.no_grad():
+            batch_feat = []
+            images = images.to(self.device)
+            for c in range(images.shape[1]):
+                single_channel = images[:, c, :, :].unsqueeze(1)
 
-            output = self.model.forward_features((single_channel).to(self.device))
-            feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
-            
-            batch_feat.append(feat_temp)
+                output = self.model.forward_features((single_channel))
+                feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
+                
+                batch_feat.append(feat_temp)
 
         return np.concatenate(batch_feat, axis=1)
 

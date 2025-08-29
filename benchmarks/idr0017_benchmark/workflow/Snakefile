@@ -34,7 +34,6 @@ elif 'subcell' == model:
 else:
     model_mode = f"_{model_mode}"
 
-run_feature_extraction = config['feature_extraction']['run_job']
 
 feat_out = os.path.join(out_abs_path, plate_dir, f"{model}{model_mode}_features")
 

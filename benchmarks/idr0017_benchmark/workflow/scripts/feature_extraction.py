@@ -35,6 +35,10 @@ def process_image_patches(model: Model, batch, cfg):
         
     features = None  # Initialize as None
     for minibatch in minibatches:
+
+        if minibatch.dtype == torch.uint8:
+            minibatch = minibatch.float() / 255.0  # Normalize to [0,1] range
+
         minibatch_features = model(minibatch)
         
         if features is None:

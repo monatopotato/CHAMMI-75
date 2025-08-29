@@ -389,16 +389,6 @@ class OpenPhenom(Model):
         patches = self._scale(patches)
         patches = self._normalize(patches)
         return self._predict_agg(patches) if self.mode == "agg" else self._predict_conc(patches)
-
-    def get_patch_info(self):
-        patch_embed = self.model.patch_size
-        # Access the Conv2d layer within PatchEmbed
-        conv_layer = patch_embed.proj
-        
-        # Extract kernel size (patch size)
-        patch_size = conv_layer.kernel_size
-        patch_height, patch_width = patch_size
-        return patch_height, patch_width
     
     def to(self, device):
         self.model = self.model.to(device)

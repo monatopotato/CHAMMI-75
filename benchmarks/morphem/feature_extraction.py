@@ -61,7 +61,7 @@ def create_pad(images, patch_width, patch_height): # new method for vit model
 def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size):
     dataset_names = ['Allen', 'CP', 'HPA']
 
-    if os.path.exists(args.feat_dir) == False:
+    if not os.path.exists(args.feat_dir):
         os.makedirs(args.feat_dir, exist_ok=True)
         for dataset_name in dataset_names:
             os.makedirs(f'{feature_dir}/{dataset_name}', exist_ok=True)

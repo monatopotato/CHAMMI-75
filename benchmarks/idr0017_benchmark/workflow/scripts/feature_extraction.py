@@ -8,7 +8,9 @@ from config import load_config
 from torch.utils.data import DataLoader, Dataset
 from models import Model
 import safetensors
-from models import *
+import sys
+sys.path.append("../../../")
+from models import get_model
 from data.dataset.dataset import FeatureExtractionDataset
     
     
@@ -46,7 +48,7 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
     # Batch size is 1 because we want to process 1 image at a time, but we are using a 
     # DataLoader so that when we are in the loop, we can async load the patches and whatnot
     # for the next images. Bicc brain
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=feature_resources['num_workers'])
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=feature_resources['num_workers']) # Add the transform
     
     image_st = {}
     for patches, image_paths, multi_channel_id in tqdm(dataloader, desc=f"Getting {feature_config['model']} features", total=len(dataloader)):
@@ -75,26 +77,19 @@ def get_features(model:Model, cfg: dict, dataset:Dataset, out_folder:str, out_na
 def main(cfg, snake_in:str , snake_out: str, snake_model:str):
     os.environ['TORCH_HOME'] = cfg['models']
     plate = os.path.basename(snake_in)
-    dataset = FeatureExtractionDataset(cfg, snake_in)
+
 
     model_name = cfg['feature_extraction']['model'].lower()
     model_mode = cfg['feature_extraction']['model_mode']
-    if model_mode is not None:
-        model_mode = model_mode.lower()
+    model_path = cfg['feature_extraction']['model_path']
     
-    model = None
-    if model_name == "dinov2":
-        model = DinoV2(cfg)                
-    elif model_name == "openphenom":
-        if model_mode == 'agg':
-            model = OpenPhenom(cfg, 'agg')
-        elif model_mode == 'conc':
-            model = OpenPhenom(cfg, 'conc')
-    elif model_name == "subcell":
-        if model_mode == 'mae':
-            model = SubCell(cfg, "MAE")
-        elif model_mode == 'vit':
-            model = SubCell(cfg, "VIT")
+
+    model_instance = get_model(model_name=model_name, model_path=model_path, model_type=model_mode)
+    model = model_instance
+    _, transforms = model_instance.get_model()
+
+    # DO this after I get my transform from the model instance
+    dataset = FeatureExtractionDataset(cfg, snake_in, transform=transforms)
 
     if model is None:
         raise AttributeError(f"Config {cfg['feature_extraction']['model']['model_mode']} and {cfg['feature_extraction']['model']} are not a valid model_mode, model config (misspelled?).")

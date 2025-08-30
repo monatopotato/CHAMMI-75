@@ -138,7 +138,7 @@ class ViTClass:
         remove_prefixes = ["module.backbone.", "module.", "module.head."]
 
         # Load model weights
-        student_model = torch.load(os.path.join(weights_path, "checkpoint.pth"), weights_only=False)["student"]
+        student_model = torch.load(os.path.join(weights_path, "checkpoint.pth"), weights_only=True)["student"]
         # Remove unwanted prefixes
         cleaned_state_dict = {}
         for k, v in student_model.items():

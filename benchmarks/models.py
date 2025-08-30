@@ -199,7 +199,11 @@ class MAEModel:
                 f"Only small, base, and large sized models are supported, not {model_size}"
             )
         
-        state_dict = torch.load(os.path.join(weights_path, "checkpoint-latest.pth"), map_location=f"{self.device}" if torch.cuda.is_available() else "cpu")
+        state_dict = torch.load(
+            os.path.join(weights_path, "checkpoint-latest.pth"),
+            map_location=f"{self.device}" if torch.cuda.is_available() else "cpu",
+            weights_only=True
+        )
         self.model.load_state_dict(state_dict["model"], strict=False)
         self.model.eval()
         self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize(), v2.Resize(size=(224, 224), antialias=True)])

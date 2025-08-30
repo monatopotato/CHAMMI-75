@@ -76,9 +76,9 @@ def main():
     parser.add_argument('--config_path', type=str, default="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/all_channels_ViT-ProtS-Pool.yaml",
                         help='Path to config file for subcell model (required when using subcell)')
     parser.add_argument('--image_folder', type=str, default="/scr/data/cell_crops",
-                        help='Path to image folder', required=True)
+                        help='Path to image folder')
     parser.add_argument('--output_folder', type=str, default="/scr/data/HPA_features",
-                        help='Output folder for features', required=True)
+                        help='Output folder for features')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of workers for data loading')
     parser.add_argument('--model_path', type=str, default="", help = "Path to where the model is located")

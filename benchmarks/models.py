@@ -138,7 +138,7 @@ class ViTClass:
         remove_prefixes = ["module.backbone.", "module.", "module.head."]
 
         # Load model weights
-        student_model = torch.load(os.path.join(weights_path, "checkpoint.pth"), weights_only=True)["student"]
+        student_model = torch.load(os.path.join(weights_path, "checkpoint.pth"), weights_only=False)["student"]
         # Remove unwanted prefixes
         cleaned_state_dict = {}
         for k, v in student_model.items():
@@ -202,7 +202,7 @@ class MAEModel:
         state_dict = torch.load(
             os.path.join(weights_path, "checkpoint-latest.pth"),
             map_location=f"{self.device}" if torch.cuda.is_available() else "cpu",
-            weights_only=True
+            weights_only=False
         )
         self.model.load_state_dict(state_dict["model"], strict=False)
         self.model.eval()

@@ -126,16 +126,12 @@ if __name__ == "__main__":
     ###### sample output ######
     """
     $ torchrun -m simclr.examples --nproc_per_node=1
-    /projectnb/morphem/chaupham/chammiv2/CHAMMI-75/models/simclr/vit.py:92: UserWarning: xFormers is available (Attention)
-    warnings.warn("xFormers is available (Attention)")
     >>>>>> running BoC simclr example ...
     Output keys: dict_keys(['output', 'proxy_loss', 'supcon_loss', 'simclr_loss', 'loss'])
     Output shape: torch.Size([6, 384])
     Loss: 1.5402511358261108
 
     >>>>>> running multi-channel ViT simclr example ...
-    /projectnb/morphem/chaupham/chammiv2/CHAMMI-75/models/simclr/vit.py:92: UserWarning: xFormers is available (Attention)
-    warnings.warn("xFormers is available (Attention)")
     Output keys: dict_keys(['output', 'proxy_loss', 'supcon_loss', 'simclr_loss', 'loss'])
     Output shape: torch.Size([6, 384])
     Loss: 1.6703466176986694

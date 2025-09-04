@@ -240,7 +240,7 @@ def train_simclr(args):
     
     # Setup the num_epochs as 100
     dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
 
     simclr_transform = SimCLRBatchTransform(image_size=(224, 224))
     
@@ -248,7 +248,7 @@ def train_simclr(args):
         model_cfg = yaml.safe_load(f)
 
     model_cfg["in_chans"] = 1
-    model = get_multi_channel_vit(**model_cfg).to(args.local_rank)
+    model = get_multi_channel_vit(**model_cfg).to(args.gpu)
 
     # Calculate training steps - CRITICAL for proper scheduler setup
     num_update_steps_per_epoch = math.ceil(len(data_loader) / args.gradient_accumulation_steps)
@@ -257,7 +257,7 @@ def train_simclr(args):
 
 
 
-    ddp_model = DDP(model, device_ids=[args.local_rank])
+    ddp_model = DDP(model, device_ids=[args.gpu])
 
     channel_ids_list = None  # [0] * b  ## list of channel ids for each image in the batch, used for channelViT simclr
     channel_masks = None
@@ -317,7 +317,7 @@ def train_simclr(args):
                 global_step += 1
                 
                 # Enhanced logging - every 10 steps
-                if args.local_rank == 0 and (global_step % 10 == 0 or global_step < 10):
+                if args.gpu == 0 and (global_step % 10 == 0 or global_step < 10):
                     current_lr = lr_scheduler.get_last_lr()[0]
                     elapsed_time = time.time() - epoch_start_time
                     steps_in_epoch = batch_idx + 1
@@ -339,7 +339,7 @@ def train_simclr(args):
                         global_step += 1
                         
                         # Enhanced logging - every 10 steps
-                        if args.local_rank == 0 and (global_step % 10 == 0 or global_step < 10):
+                        if args.gpu == 0 and (global_step % 10 == 0 or global_step < 10):
                             current_lr = lr_scheduler.get_last_lr()[0]
                             elapsed_time = time.time() - epoch_start_time
                             if global_step > 0:
@@ -353,7 +353,7 @@ def train_simclr(args):
             num_batches += 1
 
     # End of epoch logging with timing
-    if args.local_rank == 0:
+    if args.gpu == 0:
         epoch_duration = time.time() - epoch_start_time
         avg_epoch_loss = epoch_loss / num_batches
         current_lr = lr_scheduler.get_last_lr()[0]
@@ -384,7 +384,6 @@ def train_simclr(args):
         }, checkpoint_path)
         print(f"Saved checkpoint: {checkpoint_path}")
 
-print("Training completed!")
 
 
 

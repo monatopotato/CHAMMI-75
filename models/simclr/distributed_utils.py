@@ -388,13 +388,14 @@ def init_distributed_mode(args):
         print('Does not support training without GPU.')
         sys.exit(1)
 
+    # Add device_id parameter to avoid the warnings
     dist.init_process_group(
         backend="nccl",
         init_method=args.dist_url,
         world_size=args.world_size,
         rank=args.rank,
+        device_id=args.gpu  # Add this line
     )
-
     torch.cuda.set_device(args.gpu)
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)

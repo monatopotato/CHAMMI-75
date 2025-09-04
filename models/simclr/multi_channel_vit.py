@@ -9,9 +9,10 @@ from einops import rearrange, repeat
 import random
 import timm
 
-from .vit import Block
-from .model_utils import trunc_normal_
-from .loss_func import compute_proxy_loss, MultiPosConLoss, SimCLRContrastiveLoss
+from vit import Block
+from model_utils import trunc_normal_
+from loss_func import compute_proxy_loss, MultiPosConLoss, SimCLRContrastiveLoss
+import numpy as np
 
 
 class PatchEmbedPerChannel(nn.Module):
@@ -74,6 +75,9 @@ class PatchEmbedPerChannel(nn.Module):
         e.g., given 2 images, with 3 and 5 channels respectively, then x shape = [8, 1, H, W], num_channels = [3, 5]
         """
         # shared projection layer across channels
+        if self.proj.weight.dtype != x.dtype:
+            x = x.to(dtype=self.proj.weight.dtype)
+
         x = self.proj(x.unsqueeze(1))  # B Cout 1 H W, note B is c1 + c2 + ... + cb
 
         # # channel specific offsets

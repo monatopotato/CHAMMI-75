@@ -20,7 +20,6 @@ class CHAMMIv2(Dataset):
         data_size: str,
         metadata_path: str,
         image_zip_path: str,
-        sample_pair_path: str,
         sample_pair: str,
         split: str,
         transform_single_channel_after_resize: Any = None,
@@ -37,7 +36,6 @@ class CHAMMIv2(Dataset):
             metadata_path (str): Path to the metadata file (a csv file)
             image_zip_path (str): Path to the zip file containing images.
             sample_pair (str): choices = {"simclr", "supcon", None}, whether to sample another view for simclr, another image from the same category for supervised contrastive learning, or None for normal training
-            sample_pair_path (str): Path to the json file, {"category_id": [image_index1, image_index2, ...]} for sampling positive images
             split (str): The split of the dataset to use. One of {full, cate_atleast_100samples, cate_atleast_10samples}
             transform_multi_channel (callable, optional): A function/transform that takes in a multi-channel image
                 and returns a transformed version.
@@ -46,7 +44,6 @@ class CHAMMIv2(Dataset):
         """
         metadata_path = metadata_path.format(DATASIZE_PLACEHODER=data_size, METADATA_TYPE_PLACEHODER=metadata_type)
         image_zip_path = image_zip_path.format(DATASIZE_PLACEHODER=data_size)
-        sample_pair_path = sample_pair_path.format(DATASIZE_PLACEHODER=data_size, SPLIT_PLACEHODER=split)
         self.transform_single_channel_after_resize = transform_single_channel_after_resize
         self.transform_image = transform_image
         self.image_zip_path = image_zip_path
@@ -213,7 +210,6 @@ def get_chammiv2_dataloaders(
     data_size: str,
     metadata_path: str,
     image_zip_path: str,
-    sample_pair_path: str,
     sample_pair: str,
     split: str,
     image_size: tuple[int, int],
@@ -271,7 +267,6 @@ def get_chammiv2_dataloaders(
         data_size=data_size,
         metadata_path=metadata_path,
         image_zip_path=image_zip_path,
-        sample_pair_path=sample_pair_path,
         sample_pair=sample_pair,
         split=split,
         transform_single_channel_after_resize=transform_single_channel_after_resize,
@@ -328,7 +323,6 @@ if __name__ == "__main__":
         data_size=data_cfg["data_size"],
         metadata_path=data_cfg["metadata_path"],
         image_zip_path=data_cfg["image_zip_path"],
-        sample_pair_path=data_cfg["sample_pair_path"],
         sample_pair="simclr",
         split="full",  ## all images in the small dataset
         image_size=(224, 224),

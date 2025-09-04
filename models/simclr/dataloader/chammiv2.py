@@ -360,8 +360,8 @@ if __name__ == "__main__":
         data_size=data_cfg["data_size"],
         metadata_path=data_cfg["metadata_path"],
         image_zip_path=data_cfg["image_zip_path"],
-        sample_pair_path=data_cfg["sample_pair_path"],
         sample_pair="simclr",
+        sample_pair_path=data_cfg["sample_pair_path"],
         split="full",  ## all images in the small dataset
         image_size=(224, 224),
         batch_size=3,

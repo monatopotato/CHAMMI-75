@@ -388,37 +388,6 @@ print("Training completed!")
 
 
 
-
-    # Setup the optimizer
-
-
-'''
-    for epochs in range(100):
-        for data in data_loader:
-
-            output = ddp_model(
-                data,
-                channel_ids_list=channel_ids_list,
-                channel_masks=channel_masks,
-                y=labels,
-                bag_of_channels_mode=bag_of_channels_mode,
-            )
-
-            if args.local_rank == 0:
-                print("Output keys:", output.keys())
-                print("Output shape:", output["output"].shape)
-                print("Loss:", output["loss"].item())
-
-            # Here is where the magic happens
-            print(data.shape)
-            simclr_data = simclr_transform(data)
-            print(simclr_data.shape)
-            #print(len(data))
-
-            break
-'''
-        # Save the model now!
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('DINO', parents=[get_args_parser()])
     args = parser.parse_args()

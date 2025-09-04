@@ -7,6 +7,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from feat_models.vision_transformer import vit_small, vit_base, vit_large
 from feat_models.models_mae import mae_vit_base_patch16, mae_vit_small_patch16, mae_vit_large_patch16
+from feat_models.vit_pool import ViTPoolModel
 import numpy as np
 from transformers import AutoModel
 import torch
@@ -31,6 +32,7 @@ class Model(ABC):
     def to(self, device):
         """Use this to set any models to the passed in device. I.e., just call to ony our model."""
         pass
+
 
 
 # Noise Injector transformation
@@ -412,6 +414,64 @@ class OpenPhenom(Model):
             embeddings = self._predict(patches)
             return embeddings.detach().cpu()  # Add dim so `get_features` knows this is not for 384 channels
         
+class SubCell_Neuron_Feat(Model):
+    def __init__(self, device, config_path):
+        self.device = device
+        # Load config for subcell model
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+        # Load subcell model
+        self.model = self.get_subcell_model(self.config, config_path.replace('.yaml', '.pth'))
+        self.model.eval()
+        self.model.to(self.device)
+    
+    def get_patch_info(self):
+        """
+        Get the patch size information for the model. Passed in manually
+        """
+        return 16, 16
+    
+    def get_subcell_model(self, config, model_path=None):
+        model = ViTPoolModel(config["model_config"]["vit_model"], config["model_config"]["pool_model"])
+        state_dict = torch.load(model_path, map_location="cpu")
+        model.load_state_dict(state_dict)
+        return model
+    
+    def preprocess_input_subcell(self, images, per_channel=False):
+        if per_channel:
+            # Normalize each channel independently
+            min_val = torch.amin(images, dim=(2, 3), keepdims=True)
+            max_val = torch.amax(images, dim=(2, 3), keepdims=True)
+        else:
+            # Normalize globally across all channels and spatial dims
+            min_val = torch.amin(images, dim=(1, 2, 3), keepdims=True)
+            max_val = torch.amax(images, dim=(1, 2, 3), keepdims=True)
+        
+        images = (images - min_val) / (max_val - min_val + 1e-6)
+        return images
+    
+    def get_model(self):
+        return self.model, None
+    
+    def to(self, device):
+        self.model = self.model.to(device)
+        self.device = device  # Update device reference
+    
+    def _to_2chan(self, patches: torch.Tensor):
+        return patches.expand(-1, 2, -1, -1)
+    
+    def __call__(self, patches: torch.Tensor):
+        with torch.no_grad():
+            patches = self.preprocess_input_subcell(patches)
+            patches = patches.to(self.device)
+            batch_feat = []
+            for image_idx in range(patches.shape[1]):
+                single_channel_patches = self._to_2chan(patches[:, image_idx, :, :].unsqueeze(1))
+                batch_feat.append(self.model(single_channel_patches).feature_vector.cpu())
+            
+            # Stack the features and return
+            return torch.stack(batch_feat, dim=1)
+
 
 class SubCell(Model):
 
@@ -550,6 +610,8 @@ def get_model(model_name: str = None, device: torch.device = None, model_path: s
         model = OpenPhenom(device=device, mode=model_type)
     elif model_name == "dinov3":
         model = DINOv3(device=device)
+    elif model_name == "subcell":
+        model = SubCell_Neuron_Feat(device=device, config_path="/mnt/cephfs/mir/jcaicedo/morphem/dataset/models/subcell_models/DNA-Protein_ViT-ProtS-Pool.yaml")
     else:
         raise ValueError("Model not recognized. Please use 'mae', 'vit', 'dinov2', or 'openphenom'.")
     return model

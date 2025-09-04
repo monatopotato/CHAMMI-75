@@ -1,0 +1,247 @@
+'''
+Main SimCLR training script with original data loader
+
+'''
+
+
+import random
+import os
+import sys
+import datetime
+import time
+import math
+import json
+from pathlib import Path
+import numpy as np
+from PIL import Image
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
+from torchvision import datasets, transforms
+from torchvision import models as torchvision_models
+from torchvision.transforms.v2 import Transform
+import sys
+sys.path.append("../../")
+from dataset.dataset import IterableImageArchive
+from dataset import dataset_config
+from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
+from torch.utils.data import DataLoader
+from torchvision.transforms import v2
+import distributed_utils
+import argparse
+
+class PerImageNormalize(nn.Module):
+    def __init__(self, eps=1e-7):
+        super().__init__()
+        # We initialize with num_features=1, but we’ll replace it on-the-fly if needed.
+        self.eps = eps
+        self.instance_norm = nn.InstanceNorm2d(
+            num_features=1,             # Temporary placeholder
+            affine=False,               # No learnable parameters
+            track_running_stats=False,  # Use per-forward stats (no running mean)
+            eps=self.eps
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x shape: (N, C, H, W)
+        We'll ensure that our instance_norm has the correct number of channels (C).
+        """
+        # If your input has a dynamic channel size, we need to re-initialize:
+        C, _, _ = x.shape
+        if self.instance_norm.num_features != C:
+            self.instance_norm = nn.InstanceNorm2d(
+                num_features=C,
+                affine=False,
+                track_running_stats=False,
+                eps=self.eps
+            )
+
+        # Now we can pass x through our InstanceNorm2d layer
+        return self.instance_norm(x).to(torch.float16)
+    
+
+class SaturationNoiseInjector(nn.Module):
+    def __init__(self, low=200, high=255):
+        """
+        Initialize the SaturationNoiseInjector module.
+        
+        Parameters:
+            low (int): Lower bound for uniform noise values.
+            high (int): Upper bound for uniform noise values.
+        """
+        super().__init__()
+        self.low = low
+        self.high = high
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Apply high-intensity noise injection to saturated pixels in a single-channel image.
+        The function expects the input tensor to have the shape (1, H, W) with pixel intensities in the 0-255 range.
+
+        Process:
+          - Convert the input tensor to float32.
+          - Generate noise drawn uniformly from [low, high] for each pixel.
+          - Create a mask for saturated pixels (where the pixel value equals 255).
+          - Zero-out saturated pixels and add the masked noise.
+
+        Parameters:
+            x (torch.Tensor): Input tensor of shape (1, H, W).
+        
+        Returns:
+            torch.Tensor: The processed tensor with noise injected.
+        """
+        # Ensure input is in floating point for correct arithmetic
+        x = x.to(torch.float32)
+        
+        # Since x has one channel, extract the channel as a 2D tensor (H, W)
+        channel = x[0]
+        
+        # Generate noise with values uniformly drawn between self.low and self.high
+        noise = torch.empty_like(channel).uniform_(self.low, self.high)
+        
+        # Create a mask of pixels that are saturated (value == 255)
+        mask = (channel == 255).float()
+        
+        # Apply the mask to the noise to affect only the saturated pixels
+        noise_masked = noise * mask
+        
+        # Remove the saturated pixels by setting them to zero
+        channel[channel == 255] = 0
+        
+        # Add the masked noise to the channel
+        channel = channel + noise_masked
+        
+        # Update the tensor with the modified channel
+        x[0] = channel
+        
+        return x
+
+
+
+
+
+def get_args_parser():
+    parser = argparse.ArgumentParser('DINO', add_help=False)
+
+    parser.add_argument('--seed', default=0, type=int, help='Random seed.')
+
+    parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
+        distributed training; see https://pytorch.org/docs/stable/distributed.html""")
+
+    parser.add_argument("--local-rank", default=0, type=int, help="Please ignore and do not set this argument.")
+    return parser
+
+
+
+def train_simclr(args):
+    distributed_utils.init_distributed_mode(args)
+    distributed_utils.fix_random_seeds(args.seed)
+
+
+    transform = SimCLRBatchTransform()
+
+
+    config = dataset_config.DatasetConfig(
+                "/scr/vidit/chammi_train.zip", # args.data_path, /scr/data/CHAMMIv2m.zip
+                split_fns=[get_proc_split, randomize, split_for_workers],
+                num_procs = distributed_utils.get_world_size(), # maybe works? brother needs to check!
+                proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
+                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
+                dataset_size="small",
+                seed=42,
+                use_fp32=True
+        )
+
+    dataset = IterableImageArchive(config)
+    data_loader = DataLoader(dataset=dataset, batch_size=256, num_workers=6, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
+
+    simclr_transform = SimCLRBatchTransform(image_size=(224, 224))
+
+    for data in data_loader:
+        print(data.shape)
+        simclr_data = simclr_transform(data)
+        print(simclr_data.shape)
+        #print(len(data))
+
+        break
+
+class SimCLRBatchTransform(object):
+    """
+    Simple SimCLR transform to apply in your training loop.
+    Takes a batch [B, C, H, W] and returns [2*B, C, H, W] with SimCLR ordering.
+    """
+    
+    def __init__(self, image_size=(224, 224), kernel_size=11):
+        """
+        Args:
+            image_size (tuple): Target image size (height, width)
+            kernel_size (int): Kernel size for Gaussian blur
+        """
+        self.image_size = image_size
+        self.kernel_size = kernel_size
+        
+        # Create augmentation pipeline
+        self.augmentation_pipeline = v2.Compose([
+            v2.RandomResizedCrop(
+                size=self.image_size, 
+                scale=(0.2, 1.0),
+                interpolation=v2.InterpolationMode.BICUBIC,
+                antialias=True
+            ),
+            v2.RandomHorizontalFlip(p=0.5),
+            v2.RandomVerticalFlip(p=0.5),
+            v2.RandomApply([v2.GaussianBlur(kernel_size=self.kernel_size, sigma=(0.1, 2.0))], p=0.5),
+        ])
+    
+    def __call__(self, batch):
+        """
+        Apply SimCLR transformations to a batch.
+        
+        Args:
+            batch (torch.Tensor): Input batch [B, C, H, W]
+            
+        Returns:
+            torch.Tensor: Output batch [2*B, C, H, W] ordered as:
+                         [img1_view1, img2_view1, ..., img1_view2, img2_view2, ...]
+        """
+        # Normalize to [0, 1] if input is uint8
+        if batch.dtype == torch.uint8:
+            batch = batch.float() / 255.0
+        elif batch.dtype == torch.float16:
+            batch = batch.float()  # Convert float16 to float32
+        
+        batch_size = batch.shape[0]
+        
+        # Generate first views
+        view1_list = []
+        for i in range(batch_size):
+            view1 = self.augmentation_pipeline(batch[i])
+            view1_list.append(view1)
+        
+        # Generate second views
+        view2_list = []
+        for i in range(batch_size):
+            view2 = self.augmentation_pipeline(batch[i])
+            view2_list.append(view2)
+        
+        # Stack in SimCLR order: all view1s first, then all view2s
+        all_views = view1_list + view2_list
+        return torch.stack(all_views, dim=0)
+
+
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser('DINO', parents=[get_args_parser()])
+    args = parser.parse_args()
+    #Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    train_simclr(args)
+
+
+
+
+

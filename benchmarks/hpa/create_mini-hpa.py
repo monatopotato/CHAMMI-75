@@ -1,6 +1,9 @@
+"""
+Script used to convert original cell crops present in: https://virtualcellmodels.cziscience.com/dataset/hpa-subcellular-section-subcell with reduced resolution into a smaller dataset
+"""
+
 HPA_data_path = "/scr/data/cell_crops"
 save_path = "/scr/data/mini-hpa"
-# Write a script that takes the paths of all the pngs recursively in this data path and resizes all images to 256x256. Make sure you make the sub-folder as well
 
 import numpy as np
 import pandas as pd

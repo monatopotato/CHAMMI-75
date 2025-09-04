@@ -180,6 +180,7 @@ class MultiChannelViT(nn.Module):
         use_cls_head=False,
         use_channel_tokens: bool = True,
         channel_tokens_init: str = "orthogonal",
+        use_self_image_norm: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -187,6 +188,11 @@ class MultiChannelViT(nn.Module):
         self.max_in_channels = in_chans
         self.channel_sample = channel_sample
         self.proxy_orthogonal_init = proxy_orthogonal_init
+
+        if use_self_image_norm:
+            self.image_norm = nn.InstanceNorm2d(None, affine=False, track_running_stats=False, eps=1e-5)
+        else:
+            self.image_norm = None
 
         self.patch_embed = PatchEmbedPerChannel(
             img_size=img_size,
@@ -518,6 +524,9 @@ class MultiChannelViT(nn.Module):
         y: Optional[Tensor] = None,
         bag_of_channels_mode: bool = False,
     ):
+        if self.image_norm is not None:
+            x = self.image_norm(x)
+
         if self.training and self.channel_sample is not None:
             sample_res = self.sample_channels(x, channel_ids_list, channel_masks)
             x, channel_ids_list, channel_masks = sample_res["x"], sample_res["channel_ids_list"], sample_res["channel_masks"]

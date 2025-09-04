@@ -7,9 +7,10 @@ import zipfile
 from torchvision.io import decode_image
 import cv2
 import numpy as np
-import time
+import random
+import json
 
-from .guided_crop import GuidedCrop
+from dataset.guided_crop import GuidedCrop
 
 
 class CHAMMIv2(Dataset):
@@ -66,6 +67,14 @@ class CHAMMIv2(Dataset):
             ## single_channel_paths and channel_ids are stored as str (only 1 channel) in the csv file
             metadata = pd.read_csv(metadata_path)
 
+        if self.sample_pair == "supcon":  ## for supervised contrastive learning
+            ## We load a pre-computed json file for sampling positive images
+            ## json file: {"category_id": [image_index1, image_index2, ...]}
+            ## We're gonna use the image_index here to get the corresponding row in the metadata
+            with open(sample_pair_path, "r") as f:
+                cate_to_image_index = json.load(f)
+            self.cate_to_image_index = cate_to_image_index
+
         ## filter metadata based on the split
         if split == "full":
             self.label_col = "label_id"
@@ -88,7 +97,26 @@ class CHAMMIv2(Dataset):
 
         data = self._get_item_helper(idx, single_images=single_images)
 
-        if self.sample_pair == "simclr":
+        ##### Supervised Contrastive Learning: sample another image from the same category
+        if self.sample_pair == "supcon":  ## for supervised contrastive learning to train multichannel images
+            ## we sample another index from the same category
+            label = str(self.metadata.iloc[idx][self.label_col])  ## current category
+            all_positive_imgs = self.cate_to_image_index[label]  ## all image indices in the same category
+            N = len(all_positive_imgs)
+            if N == 1:  ## sample the same image, which may be slightly different due to augmentation
+                data_positive = self._get_item_helper(idx, prefix=self.POS_PREFIX, single_images=single_images)
+            else:  ## sample a different image
+                ## sample an local position for the first N-1 positions
+                local_position = random.randint(0, N - 2)
+                pos_idx = all_positive_imgs[local_position]  # get the corresponding index in the metadata
+                if pos_idx == idx:  ## if the sample index is the same as the current index
+                    pos_idx = all_positive_imgs[N - 1]  ## get the last index
+                data_positive = self._get_item_helper(pos_idx, prefix=self.POS_PREFIX)  ## Note: single_images=None here
+            assert data["label"] == data_positive["label"], "The label of the positive sample is not the same as the current sample!"
+            data.update(data_positive)
+
+        ### for SimCLR: sample another view of the same image
+        elif self.sample_pair == "simclr":
             data_positive = self._get_item_helper(idx, prefix=self.POS_PREFIX, single_images=single_images)
             data.update(data_positive)
 
@@ -147,7 +175,7 @@ class CHAMMIv2(Dataset):
         zf = self.images_zip
 
         for path in single_channel_paths:
-            data: bytes = zf.read(path)
+            data: bytes = zf.read(path)  # bytearray(zf.read(path))
 
             if self.channel_return_numpy:
                 # decode via OpenCV directly into NumPy
@@ -230,7 +258,6 @@ def get_chammiv2_dataloaders(
     Only return train_loader for now.
     """
     train_loader, valid_loader, test_loader = None, None, None
-
     if augmentation["train"] == "simclr":
         kernel_size = 11
         channel_return_numpy = False  ## return single-channel images as PyTorch tensors
@@ -249,7 +276,8 @@ def get_chammiv2_dataloaders(
                     ]
                 )
             else:  ## multichannel
-                ## some augmentations like ColorJitter can only be applied to 1 or 3-channel images, not for various channels
+                ## some torchvison augmentations like ColorJitter can only be applied to 1 or 3-channel images, not for various channels
+                ## may use others like Kornia or Albumentations later
                 transform_single_channel_after_resize = transforms.Compose(
                     [
                         transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4)], p=0.8),
@@ -264,6 +292,7 @@ def get_chammiv2_dataloaders(
                         transforms.Lambda(lambda x: x.float() / 255.0),
                     ]
                 )
+            print(f"+-+-+-+-+- Using SimCLR augmentation (CPU) for CHAMMIV2 ({metadata_type}) (use_guided_crops={use_guided_crops})....")
     else:
         raise NotImplementedError(f"augmentation {augmentation} is not implemented")
 
@@ -282,6 +311,9 @@ def get_chammiv2_dataloaders(
         guided_crops_path=guided_crops_path,
         image_size=image_size,
     )
+    if sample_pair in ["simclr", "supcon"]:
+        # Batch size is halved as we sample another view/positive image to make up for it
+        batch_size = batch_size // 2
 
     train_loader = torch.utils.data.DataLoader(
         dataset,

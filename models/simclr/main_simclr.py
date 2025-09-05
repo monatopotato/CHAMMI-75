@@ -160,7 +160,7 @@ def get_args_parser():
 
     parser.add_argument('--guided_cropping', default=False, type=bool, help='Whether to use guided cropping based on segmentation masks')
 
-    parser.add_argument('--guided_crop_path', default='/scr/vidit/chammi_segmentations.zip', type=str, help='Path to the guided crops segmentation masks zip file')
+    parser.add_argument('--guided_crops_path', default='/scr/vidit/chammi_segmentations.zip', type=str, help='Path to the guided crops segmentation masks zip file')
 
     parser.add_argument('--guided_crops_size', default=96, type=int, help='Size of the guided crops to extract')
 

@@ -226,6 +226,33 @@ def train_simclr(args):
     distributed_utils.init_distributed_mode(args)
     distributed_utils.fix_random_seeds(args.seed)
 
+    config = dataset_config.DatasetConfig(
+                args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
+                split_fns=[get_proc_split, randomize, split_for_workers],
+                num_procs = distributed_utils.get_world_size(), # maybe works? brother needs to check!
+                proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
+                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
+                dataset_size=args.dataset_size,
+                seed=42,
+                use_fp32=True
+        )
+    
+    # If guided cropping is enabled, we add the guided crops path and size to the config
+    if args.guided_cropping:
+        config = dataset_config.DatasetConfig(
+                args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
+                split_fns=[get_proc_split, randomize, split_for_workers],
+                num_procs = distributed_utils.get_world_size(), # maybe works? brother needs to check!
+                proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
+                guided_crops_path = args.guided_crops_path,
+                guided_crops_size = args.guided_crops_size,
+                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
+                dataset_size=args.dataset_size,
+                seed=42,
+                use_fp32=True
+                )
+
+
 
     config = dataset_config.DatasetConfig(
                 "/scr/vidit/chammi_train.zip", # args.data_path, /scr/data/CHAMMIv2m.zip
@@ -352,37 +379,37 @@ def train_simclr(args):
             epoch_loss += loss.item() * args.gradient_accumulation_steps
             num_batches += 1
 
-    # End of epoch logging with timing
-    if args.gpu == 0:
-        epoch_duration = time.time() - epoch_start_time
-        avg_epoch_loss = epoch_loss / num_batches
-        current_lr = lr_scheduler.get_last_lr()[0]
+        # End of epoch logging with timing
+        if args.gpu == 0:
+            epoch_duration = time.time() - epoch_start_time
+            avg_epoch_loss = epoch_loss / num_batches
+            current_lr = lr_scheduler.get_last_lr()[0]
+            
+            # Estimate total training time remaining
+            epochs_remaining = args.epochs - (epoch + 1)
+            eta_total = (epoch_duration * epochs_remaining) / 60  # in minutes
+            
+            print(f"Epoch {epoch + 1} completed in {epoch_duration/60:.1f} minutes: "
+                f"Average Loss = {avg_epoch_loss:.4f}, LR = {current_lr:.6f}")
+            
+            if epochs_remaining > 0:
+                print(f"ETA for training completion: {eta_total:.1f} minutes ({eta_total/60:.1f} hours)")
+            
+            print("-" * 50)
         
-        # Estimate total training time remaining
-        epochs_remaining = args.epochs - (epoch + 1)
-        eta_total = (epoch_duration * epochs_remaining) / 60  # in minutes
-        
-        print(f"Epoch {epoch + 1} completed in {epoch_duration/60:.1f} minutes: "
-              f"Average Loss = {avg_epoch_loss:.4f}, LR = {current_lr:.6f}")
-        
-        if epochs_remaining > 0:
-            print(f"ETA for training completion: {eta_total:.1f} minutes ({eta_total/60:.1f} hours)")
-        
-        print("-" * 50)
-    
-    # Save checkpoint
-    if (epoch + 1) % 1 == 0:  # Save every 1 epochs
-        checkpoint_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch + 1}.pt")
-        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
-        torch.save({
-            'epoch': epoch + 1,
-            'model_state_dict': ddp_model.module.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': lr_scheduler.state_dict(),
-            'loss': avg_epoch_loss,
-            'global_step': global_step
-        }, checkpoint_path)
-        print(f"Saved checkpoint: {checkpoint_path}")
+        # Save checkpoint
+        if (epoch + 1) % 1 == 0:  # Save every 1 epochs
+            checkpoint_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch + 1}.pt")
+            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': ddp_model.module.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': lr_scheduler.state_dict(),
+                'loss': avg_epoch_loss,
+                'global_step': global_step
+            }, checkpoint_path)
+            print(f"Saved checkpoint: {checkpoint_path}")
 
 
 

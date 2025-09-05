@@ -37,6 +37,7 @@ from multi_channel_vit import get_multi_channel_vit
 from torch.nn.parallel import DistributedDataParallel as DDP
 from optimizer import get_optimizer
 from diffusers.optimization import get_scheduler
+import glob
 
 
 class PerImageNormalize(nn.Module):

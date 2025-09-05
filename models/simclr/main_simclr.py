@@ -178,7 +178,7 @@ def load_checkpoint(checkpoint_path, model, optimizer, lr_scheduler, device):
         tuple: (start_epoch, global_step, last_loss)
     """
     print(f"Loading checkpoint from {checkpoint_path}")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=torch.device(device))
     
     # Load model state
     model.load_state_dict(checkpoint['model_state_dict'])

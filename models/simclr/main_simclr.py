@@ -158,13 +158,13 @@ def get_args_parser():
 
     parser.add_argument('--dataset_size', default='small', type=str, help='Size of the dataset to use: small/medium/full')
 
-    parser.add_argument('--guided_cropping', action='store_true', help='Whether to use guided cropping based on segmentation masks')
+    parser.add_argument('--guided_cropping', default=False, type=bool, help='Whether to use guided cropping based on segmentation masks')
 
-    parser.add_argument('--guided_crops_path', default='/scr/vidit/chammi_segmentations.zip', type=str, help='Path to the guided crops segmentation masks zip file')
+    parser.add_argument('--guided_crop_path', default='/scr/vidit/chammi_segmentations.zip', type=str, help='Path to the guided crops segmentation masks zip file')
 
     parser.add_argument('--guided_crops_size', default=96, type=int, help='Size of the guided crops to extract')
 
-    parser.add_argument('--multiscale', action='store_true', help='Whether to use multiscale training')
+    parser.add_argument('--multiscale', default=False, type=bool, help='Whether to use multiscale training')
     return parser
 
 

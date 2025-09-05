@@ -8,9 +8,10 @@ from torch.utils.data import Dataset
 from safetensors.torch import load_file
 from utils import get_segmentation_crops, get_masked_cells
 from torchvision.transforms.v2.functional import resize, center_crop
+from torchvision import transforms
 
 class FeatureExtractionDataset(Dataset):
-    def __init__(self, config: dict, inputs_dir: str):
+    def __init__(self, config: dict, inputs_dir: str, transform: transforms.Compose = None):
         config = config
         self.feature_config = config['feature_extraction']
         self.use_masks = False
@@ -29,6 +30,7 @@ class FeatureExtractionDataset(Dataset):
         self.plate = os.path.basename(inputs_dir) # this plate is the actual zip name w/o the .zip. 
 
         self.image_groups = self._get_filtered_image_groups(metadata)
+        self.transform = transform
         
     def _get_filtered_image_groups(self, metadata: pl.DataFrame):
         images = metadata.select(pl.all().sort_by('imaging.channel').over('imaging.multi_channel_id'))
@@ -92,10 +94,13 @@ class FeatureExtractionDataset(Dataset):
             
         # patches get normalized by each model in the way the model needs. Don't add here please.
         stacked = torch.stack(patches, dim=0)
-        
-        if stacked.shape[-1] != self.feature_config['crop']:
-            stacked = center_crop(stacked, self.feature_config['crop'])
-        if stacked.shape[-1] != self.feature_config['resize']:
-            stacked = resize(stacked, size = (self.feature_config['resize']), antialias=True)
-        
+
+        if self.transform:        
+            if stacked.shape[-1] != self.feature_config['crop']:
+                stacked = center_crop(stacked, self.feature_config['crop'])
+            if stacked.shape[-1] != self.feature_config['resize']:
+                stacked = resize(stacked, size = (self.feature_config['resize']), antialias=True)
+        else:
+            stacked = self.transform(stacked)
+
         return stacked, image_names, multi_channel_id

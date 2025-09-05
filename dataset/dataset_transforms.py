@@ -12,12 +12,15 @@ disable_beta_transforms_warning()
 class GuidedCrop(object):
     def __init__(self, crop_size: tuple[int,int], crop_data: str):
         assert len(crop_size) == 2 and isinstance(crop_size[0], int) and isinstance(crop_size[1], int)
-        assert isinstance(crop_data, str) and crop_data.endswith('zip')
+        assert isinstance(crop_data, str)
         
         self.crop_size = crop_size
         crop_data = os.path.abspath(os.path.expanduser(crop_data))
-        self.data = zipfile.ZipFile(crop_data)
-        self.data_paths = set([file.filename for file in self.data.filelist if not file.is_dir()])
+        self.crop_data_dir = Path(crop_data)
+        assert self.crop_data_dir.is_dir(), f"{crop_data} is not a valid directory"
+        self.data_paths = set([str(p) for p in self.crop_data_dir.glob("*.safetensors")])
+
+
 
     def __call__(self, sample:torch.Tensor, sample_path:str) -> torch.Tensor: 
         if sample_path in self.data_paths:

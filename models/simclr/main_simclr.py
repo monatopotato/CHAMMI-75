@@ -404,7 +404,7 @@ def train_simclr(args):
     
     # Setup the num_epochs as 100
     dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=8, pin_memory=True, persistent_workers=True)
 
     simclr_transform = SimCLRBatchTransform(image_size=(224, 224))
     

@@ -162,7 +162,9 @@ def get_args_parser():
 
     parser.add_argument('--guided_crops_path', default='/scr/vidit/chammi_segmentations.zip', type=str, help='Path to the guided crops segmentation masks zip file')
 
-    parser.add_argument('--guided_crops_size', default=96, type=int, help='Size of the guided crops to extract')
+    parser.add_argument('--guided_crops_size', default=(256, 256), type=int, nargs=2,
+        help="""Size of the guided crops. Only used if --guided_cropping is True.
+        Should be a tuple of two integers (height, width).""")
 
     parser.add_argument('--multiscale', default=False, type=bool, help='Whether to use multiscale training')
     return parser
@@ -261,19 +263,6 @@ def train_simclr(args):
                 seed=42,
                 use_fp32=True
                 )
-
-
-
-    config = dataset_config.DatasetConfig(
-                "/scr/vidit/chammi_train.zip", # args.data_path, /scr/data/CHAMMIv2m.zip
-                split_fns=[get_proc_split, randomize, split_for_workers],
-                num_procs = distributed_utils.get_world_size(), # maybe works? brother needs to check!
-                proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
-                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
-                dataset_size="small",
-                seed=42,
-                use_fp32=True
-        )
     
     # Setup the num_epochs as 100
     dataset = IterableImageArchive(config)

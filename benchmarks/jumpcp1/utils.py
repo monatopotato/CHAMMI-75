@@ -91,34 +91,20 @@ def create_replicability_df(
     result,
     pos_sameby,
     qthreshold,
-    modality,
-    cell,
-    timepoint,
     data_input,
     tested_wells
 ):
     _replicability_map_df = replicability_map_df
     _replicability_fr_df = replicability_fr_df
 
-    _modality = modality
-    _cell = cell
-    _timepoint = timepoint
-    _time = time_point(_modality, _timepoint)
     _data_input = data_input
     _tested_wells = tested_wells
-
-    _description = f"{modality}_{_cell}_{_time}"
 
     _map_df = calculate_mAP(result, pos_sameby, qthreshold)
     _fr = calculate_fraction_retrieved(_map_df)
 
     _fr_df = pd.DataFrame(
         {
-            "Description": _description,
-            "Modality": _modality,
-            "Cell": _cell,
-            "time": _time,
-            "timepoint": _timepoint,
             "data_source": _data_input,
             "Nwells": _tested_wells,
             "fr": f"{_fr:.3f}",
@@ -127,11 +113,6 @@ def create_replicability_df(
     )
     _replicability_fr_df = concat_profiles(_replicability_fr_df, _fr_df)
 
-    _map_df["Description"] = f"{_description}"
-    _map_df["Modality"] = f"{_modality}"
-    _map_df["Cell"] = f"{_cell}"
-    _map_df["time"] = f"{_time}"
-    _map_df["timepoint"] = f"{_timepoint}"
     _map_df["data_source"] = f"{_data_input}"
     _replicability_map_df = concat_profiles(_replicability_map_df, _map_df)
 
@@ -149,31 +130,18 @@ def create_matching_df(
     result,
     pos_sameby,
     qthreshold,
-    modality,
-    cell,
-    timepoint,
     data_input,
 ):
     _matching_map_df = matching_map_df
     _matching_fr_df = matching_fr_df
 
-    _modality = modality
-    _cell = cell
-    _timepoint = timepoint
-    _time = time_point(_modality, _timepoint)
     _data_input = data_input
-    _description = f"{modality}_{_cell}_{_time}"
 
     _map_df = calculate_mAP(result, pos_sameby, qthreshold)
     _fr = calculate_fraction_retrieved(_map_df)
 
     _fr_df = pd.DataFrame(
         {
-            "Description": _description,
-            "Modality": _modality,
-            "Cell": _cell,
-            "time": _time,
-            "timepoint": _timepoint,
             "data_source": _data_input,
             "fr": f"{_fr:.3f}",
         },
@@ -181,11 +149,6 @@ def create_matching_df(
     )
     _matching_fr_df = concat_profiles(_matching_fr_df, _fr_df)
 
-    _map_df["Description"] = f"{_description}"
-    _map_df["Modality"] = f"{_modality}"
-    _map_df["Cell"] = f"{_cell}"
-    _map_df["time"] = f"{_time}"
-    _map_df["timepoint"] = f"{_timepoint}"
     _map_df["data_source"] = f"{_data_input}"
     _matching_map_df = concat_profiles(_matching_map_df, _map_df)
 
@@ -195,70 +158,6 @@ def create_matching_df(
     ].astype(float)
 
     return _matching_map_df, _matching_fr_df
-
-
-def create_gene_compound_matching_df(
-    gene_compound_matching_map_df,
-    gene_compound_matching_fr_df,
-    result,
-    pos_sameby,
-    qthreshold,
-    modality_1,
-    modality_2,
-    cell,
-    timepoint1,
-    timepoint2,
-    data_input
-):
-    _gene_compound_matching_map_df = gene_compound_matching_map_df
-    _gene_compound_matching_fr_df = gene_compound_matching_fr_df
-
-    _modality_1 = modality_1
-    _modality_2 = modality_2
-    _cell = cell
-    _timepoint_1 = timepoint1
-    _timepoint_2 = timepoint2
-    _time_1 = time_point(_modality_1, _timepoint_1)
-    _time_2 = time_point(_modality_2, _timepoint_2)
-
-    _data_input = data_input
-    _description = f"{_modality_1}_{cell}_{_time_1}-{_modality_2}_{cell}_{_time_2}"
-
-    _map_df = calculate_mAP(result, pos_sameby, qthreshold)
-    _fr = calculate_fraction_retrieved(_map_df)
-
-    _fr_df = pd.DataFrame(
-        {
-            "Description": _description,
-            "Modality1": f"{_modality_1}_{_time_1}",
-            "Modality2": f"{_modality_2}_{_time_2}",
-            "data_source": _data_input,
-            "Cell": _cell,
-            "fr": f"{_fr:.3f}",
-        },
-        index=[len(_gene_compound_matching_fr_df)],
-    )
-    _gene_compound_matching_fr_df = concat_profiles(
-        _gene_compound_matching_fr_df, _fr_df
-    )
-
-    _map_df["Description"] = f"{_description}"
-    _map_df["Modality1"] = f"{_modality_1}_{_time_1}"
-    _map_df["Modality2"] = f"{_modality_2}_{_time_2}"
-    _map_df["Cell"] = f"{_cell}"
-    _map_df["data_source"] = f"{_data_input}"
-    _gene_compound_matching_map_df = concat_profiles(
-        _gene_compound_matching_map_df, _map_df
-    )
-
-    _gene_compound_matching_fr_df["fr"] = _gene_compound_matching_fr_df["fr"].astype(
-        float
-    )
-    _gene_compound_matching_map_df[
-        "mean_average_precision"
-    ] = _gene_compound_matching_map_df["mean_average_precision"].astype(float)
-
-    return _gene_compound_matching_map_df, _gene_compound_matching_fr_df
 
 
 def consensus(profiles_df, group_by_feature):

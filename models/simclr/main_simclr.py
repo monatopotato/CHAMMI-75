@@ -127,11 +127,140 @@ class SaturationNoiseInjector(nn.Module):
         return x
 
 
+def find_latest_checkpoint(output_dir):
+    """
+    Find the latest checkpoint in the output directory.
+    
+    Args:
+        output_dir (str): Directory to search for checkpoints
+        
+    Returns:
+        str or None: Path to the latest checkpoint file, or None if no checkpoints found
+    """
+    checkpoint_pattern = os.path.join(output_dir, "checkpoint_epoch_*.pt")
+    checkpoint_files = glob.glob(checkpoint_pattern)
+    
+    if not checkpoint_files:
+        return None
+    
+    # Extract epoch numbers and find the latest one
+    epoch_numbers = []
+    for checkpoint_file in checkpoint_files:
+        try:
+            # Extract epoch number from filename like "checkpoint_epoch_5.pt"
+            filename = os.path.basename(checkpoint_file)
+            epoch_num = int(filename.split('_')[-1].split('.')[0])
+            epoch_numbers.append((epoch_num, checkpoint_file))
+        except (ValueError, IndexError):
+            continue
+    
+    if epoch_numbers:
+        # Sort by epoch number and return the latest checkpoint
+        latest_checkpoint = max(epoch_numbers, key=lambda x: x[0])[1]
+        return latest_checkpoint
+    
+    return None
+
+
+def load_checkpoint(checkpoint_path, model, optimizer, lr_scheduler, device):
+    """
+    Load checkpoint and return the epoch and global_step to resume from.
+    
+    Args:
+        checkpoint_path (str): Path to the checkpoint file
+        model: The model to load state into
+        optimizer: The optimizer to load state into
+        lr_scheduler: The learning rate scheduler to load state into
+        device: Device to load the checkpoint on
+        
+    Returns:
+        tuple: (start_epoch, global_step, last_loss)
+    """
+    print(f"Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    
+    # Load model state
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    # Load optimizer state
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
+    # Load scheduler state
+    lr_scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    
+    start_epoch = checkpoint['epoch']
+    global_step = checkpoint.get('global_step', 0)
+    last_loss = checkpoint.get('loss', 0.0)
+    
+    print(f"Resumed from epoch {start_epoch}, global step {global_step}, last loss: {last_loss:.4f}")
+    
+    return start_epoch, global_step, last_loss
+
+
+def check_and_handle_existing_checkpoints(output_dir, args):
+    """
+    Check for existing checkpoints and handle them based on user preference.
+    
+    Args:
+        output_dir (str): Directory to check for checkpoints
+        args: Training arguments
+        
+    Returns:
+        tuple: (should_resume, checkpoint_path)
+    """
+    latest_checkpoint = find_latest_checkpoint(output_dir)
+    
+    if latest_checkpoint is None:
+        print(f"No existing checkpoints found in {output_dir}. Starting fresh training.")
+        return False, None
+    
+    print(f"Found existing checkpoint: {latest_checkpoint}")
+    
+    # Add a command line argument to control this behavior
+    if hasattr(args, 'resume') and args.resume:
+        print("Resuming training from the latest checkpoint.")
+        return True, latest_checkpoint
+    elif hasattr(args, 'overwrite') and args.overwrite:
+        print("Overwriting existing checkpoints and starting fresh training.")
+        return False, None
+    else:
+        # Interactive prompt (only on main process to avoid multiple prompts)
+        if args.gpu == 0:
+            while True:
+                choice = input("Do you want to (r)esume from checkpoint, (o)verwrite and start fresh, or (a)bort? [r/o/a]: ").strip().lower()
+                if choice in ['r', 'resume']:
+                    should_resume = True
+                    break
+                elif choice in ['o', 'overwrite']:
+                    should_resume = False
+                    break
+                elif choice in ['a', 'abort']:
+                    print("Training aborted by user.")
+                    sys.exit(0)
+                else:
+                    print("Invalid choice. Please enter 'r', 'o', or 'a'.")
+            
+            # In distributed training, broadcast the decision to other processes
+            if dist.is_initialized():
+                # Create a tensor to broadcast the decision
+                decision_tensor = torch.tensor([1 if should_resume else 0], dtype=torch.int, device=args.gpu)
+                dist.broadcast(decision_tensor, src=0)
+        else:
+            # Non-main processes wait for the decision
+            if dist.is_initialized():
+                decision_tensor = torch.tensor([0], dtype=torch.int, device=args.gpu)
+                dist.broadcast(decision_tensor, src=0)
+                should_resume = bool(decision_tensor.item())
+            else:
+                should_resume = False
+        
+        return should_resume, latest_checkpoint if should_resume else None
+
 
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DINO', add_help=False)
+    parser = argparse.ArgumentParser('SimCLR', add_help=False)
 
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
 
@@ -167,6 +296,11 @@ def get_args_parser():
         Should be a tuple of two integers (height, width).""")
 
     parser.add_argument('--multiscale', default=False, type=bool, help='Whether to use multiscale training')
+
+   # Checkpoint handling arguments
+    parser.add_argument('--resume', action='store_true', help='Automatically resume from the latest checkpoint if available')
+    
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite existing checkpoints and start fresh training')
     return parser
 
 
@@ -238,6 +372,9 @@ def train_simclr(args):
     distributed_utils.init_distributed_mode(args)
     distributed_utils.fix_random_seeds(args.seed)
 
+    # Check for existing checkpoints and handle them
+    should_resume, checkpoint_path = check_and_handle_existing_checkpoints(args.output_dir, args)
+
     config = dataset_config.DatasetConfig(
                 args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
                 split_fns=[get_proc_split, randomize, split_for_workers],
@@ -301,6 +438,15 @@ def train_simclr(args):
         num_training_steps = total_training_steps
     )
 
+    # Initialize training variables
+    start_epoch = 0
+    global_step = 0
+
+    # Load checkpoint if resuming
+    if should_resume and checkpoint_path:
+        start_epoch, global_step, last_loss = load_checkpoint(
+            checkpoint_path, ddp_model.module, optimizer, lr_scheduler, args.gpu
+        )
 
     ddp_model.train()
     
@@ -311,7 +457,7 @@ def train_simclr(args):
     # Setup the learning rate warmup
    # Training loop
     global_step = 0
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         print(f"Starting epoch {epoch + 1}/{args.epochs}")
         epoch_start_time = time.time()
         epoch_loss = 0.0
@@ -379,9 +525,9 @@ def train_simclr(args):
             num_batches += 1
 
         # End of epoch logging with timing
+        avg_epoch_loss = epoch_loss / num_batches
         if args.gpu == 0:
             epoch_duration = time.time() - epoch_start_time
-            avg_epoch_loss = epoch_loss / num_batches
             current_lr = lr_scheduler.get_last_lr()[0]
             
             # Estimate total training time remaining
@@ -414,7 +560,7 @@ def train_simclr(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser('DINO', parents=[get_args_parser()])
+    parser = argparse.ArgumentParser('SimCLR', parents=[get_args_parser()])
     args = parser.parse_args()
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     train_simclr(args)

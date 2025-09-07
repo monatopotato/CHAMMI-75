@@ -29,8 +29,10 @@ class IterableImageArchive(IterableDataset):
 
     def load_archive(self):
         self.archive = zipfile.ZipFile(self.config.data_path, "r")
-        self.image_paths = [file for file in self.archive.infolist() 
-                        if not file.is_dir() and file.filename.endswith(self.config.img_type)]
+        ds10 = ["wtc0001", "jump0001", "hpa0018", "nidr0031", "nidr0032", "idr0002", "idr0088", "idr0086", "idr0089", "idr0007"]
+        self.image_paths = [file for file in self.archive.infolist()
+                        if not file.is_dir() and file.filename.endswith(self.config.img_type) and any(ds in file.filename for ds in ds10)] #Allen, CP, HPA
+        #print(f"Total images found in archive: {len(self.image_paths)}")
 
     def return_sample(self, file_list: list):
         for file_path in file_list:
@@ -196,11 +198,13 @@ class IterableImageArchive(IterableDataset):
 
             # Apply guided crops if available
             if self.config.guided_crops_path and self.guided_crops.crop_size != (-1, -1):
-                safetensors_name = file_path.filename[:-4] + ".safetensors"
-                if self.config.dataset_size == "small":
-                    safetensors_name = safetensors_name.replace("CHAMMI-75_small", "CHAMMI-75_guidance")
-                else:
-                    safetensors_name = safetensors_name.replace("CHAMMI-75_train", "CHAMMI-75_guidance")
+                safetensors_name = os.sep.join(file_path.filename.split(os.sep)[1:])
+                safetensors_name = safetensors_name[:-4] + ".safetensors"
+                safetensors_name = os.path.join(self.config.guided_crops_path, safetensors_name)
+                #if self.config.dataset_size == "small":
+                #    safetensors_name = safetensors_name.replace("CHAMMI-75_small", "CHAMMI-75_guidance")
+                #else:
+                #    safetensors_name = safetensors_name.replace("CHAMMI-75_train", "CHAMMI-75_guidance")
                 if safetensors_name in self.guided_crops.data_paths:
                     image_tensor = self.guided_crops(image_tensor, safetensors_name)
                 else:

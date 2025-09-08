@@ -66,19 +66,47 @@ def merge_csv_files(
 
 
 if __name__ == "__main__":
-    root_dir = '/home/MORGRIDGE/akazi/foundation_models/idr0017_benchmarking'  # Replace with your actual root directory
-    input_files = glob.glob(os.path.join(root_dir, '**', 'roc_scores.csv'), recursive=True)
-    output_file = 'merged_output_late.csv'
+    
+    # PATHS
+    root_dir = '/home/MORGRIDGE/akazi/idr0017_benchmarking/test_parallel_processing'  # Replace with your actual root directory
+    csv_file_name = 'auc_roc_scores.csv'
+    
+    
+    # Find all CSV files in subdirectories
+    input_files = glob.glob(os.path.join(root_dir, '**', csv_file_name), recursive=True)
+    output_file = os.path.join(root_dir, 'merged_' + csv_file_name)
 
-    merged_df = merge_csv_files(
-    csv_files = input_files,
-    common_column = "Mutation",
-    include_columns=["Mean Distance"],
-    how='inner'
-)
 
+    # Merge CSV Files
+    print(f"Found {len(input_files)} files to merge.")
+    merged_df = merge_csv_files(csv_files = input_files,
+                                common_column = "Mutation",
+                                include_columns=["Effect Size"],
+                                how='inner')
+    
+    
+    
+    # Remove rows that contains certain cell lines
+    # Remove rows where the 'Mutation' column contains any word related to 'PARENT' (case-insensitive)
+    merged_df = merged_df[~merged_df['Mutation'].str.contains('PAR', case=False, na=False)]
+    
+
+    # Calculate averages of numeric columns
+    numeric_cols = merged_df.select_dtypes(include='float64').columns
+    averages = merged_df[numeric_cols].mean()
+    print("Averages of numeric columns:")
+    print(averages)
+
+    # Add averages as the last row
+    avg_row = {col: averages[col] if col in averages else '' for col in merged_df.columns}
+    avg_row[merged_df.columns[0]] = 'Average'
+    merged_df = pd.concat([merged_df, pd.DataFrame([avg_row])], ignore_index=True)
+
+    # Save the merged DataFrame to a new CSV Files
     merged_df.to_csv(output_file, index=False)
     print(f"Merged DataFrame saved to {output_file}")
+    
+    
 
 
 

@@ -1,49 +1,65 @@
-import torch
 import numpy as np
 import pandas as pd
 import argparse
 import os
+import pycytominer
 from tqdm import tqdm
 
 """
 Mean profile over single-cells in the well for DINO4Cells pth files
 """
 
+def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model, feature_size, feature_columns):
+    plate_metadata = pd.read_csv(os.path.join(metadata_folder, plate_filename + '.csv' ))
+    plate_metadata.drop(columns = ['index', 'Nuclei_Location_Center_X', 'Nuclei_Location_Center_Y', 'Target', 'Metadata_broad_sample', 'val', 'Image_Name' ], inplace = True)
+    plate_metadata['batch'] = '2020_11_04_CPJUMP1'
+    plate_metadata[['plate', 'well', 'site']] = plate_metadata['Key'].str.split('/', n=3, expand=True)
+    plate_metadata.drop(columns = ['Key'], inplace = True)
 
-def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model):
-        feature_size = {'cp-cnn':768, 'dinov1':1920, 'dinov2':1920, 'dinov3':1920, 'OpenPhenom':1920, 'SubCell':4096}
-        feature_columns = ['emb_' + str(i) for i in range(feature_size[model])]
-        plate_metadata = pd.read_csv(os.path.join(metadata_folder, plate_filename + '.csv' ))
-        plate_metadata.drop(columns = ['index', 'Nuclei_Location_Center_X', 'Nuclei_Location_Center_Y', 'Target', 'Metadata_broad_sample', 'val', 'Image_Name' ], inplace = True)
-        plate_metadata['batch'] = '2020_11_04_CPJUMP1'
-        plate_metadata[['plate', 'well', 'site']] = plate_metadata['Key'].str.split('/', n=3, expand=True)
-        plate_metadata.drop(columns = ['Key'], inplace = True)
+    if model in ['dinov1', 'dinov2', 'dinov3']:
+        features = np.load(os.path.join(profiles_folder, f'{plate_filename}.npy' ))
+        features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npy' )))
+    if model == 'SubCell':
+        features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npz' ))['features'])
 
-        if model in ['dinov1', 'dinov2', 'dinov3']:
-                features = np.load(os.path.join(profiles_folder, f'{plate_filename}.npy' ))
-                print(features.shape)
-                features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npy' )))
-                print(features.shape)
-        if model == 'SubCell':
-                features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npz' ))['features'])
-                print(features.shape)
+    assert len(features) == len(plate_metadata)
+    profile_data = pd.concat((plate_metadata, features), axis = 1)
+    profile_data.rename(columns = dict(zip([i for i in range(feature_size[model])], feature_columns)), inplace = True, errors='raise')
+    profile_data = profile_data.groupby(["batch", "plate", "well"])[feature_columns].mean().reset_index()
+    plate = plate_filename.split('.')[0]
+    os.makedirs(f'./features/aggregated/{model}/{plate}', exist_ok = True)
+    print(profile_data.columns)
+    profile_data.to_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
 
-        assert len(features) == len(plate_metadata)
-        profile_data = pd.concat((plate_metadata, features), axis = 1)
-        profile_data.rename(columns = dict(zip([i for i in range(feature_size[model])], feature_columns)), inplace = True, errors='raise')
-        profile_data = profile_data.groupby(["batch", "plate", "well"])[feature_columns].mean().reset_index()
-        plate = plate_filename.split('.')[0]
-        os.mkdir(f'./features/aggregated/{model}/{plate}')
-        profile_data.to_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
+
+def normalize_features(plates, model, feature_columns):
+    group_df = pd.DataFrame()
+    for plate in plates:
+        cellprofiler_plate = pd.read_csv(f'./features/cellprofiler/{plate}/{plate}_normalized_feature_select_negcon_batch.csv.gz')
+        cellprofiler_plate = cellprofiler_plate[[i for i in cellprofiler_plate.columns if 'Metadata' in i]]
+        dl_plate = pd.read_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
+        dl_plate = pd.merge(cellprofiler_plate, dl_plate, how = 'left', left_on=['Metadata_Plate', 'Metadata_Well'], right_on = ['plate', 'well']).reset_index(drop=True)
+        dl_plate.drop(columns = ['batch', 'plate', 'well'], inplace = True)
+        dl_plate.to_csv(f'./features/aggregated/{model}/{plate}/{plate}_raw.csv.gz', compression='gzip', index = False)
+        group_df = pd.concat((group_df, dl_plate)).reset_index(drop = True)
+
+    normalized_df = pycytominer.normalize(group_df, features = feature_columns, meta_features = 'infer', method = 'spherize', spherize_epsilon = 1e-3, samples = "Metadata_control_type == 'negcon'")
+    for plate in normalized_df.Metadata_Plate.unique():
+        to_save = normalized_df[normalized_df.Metadata_Plate == plate].reset_index(drop = True)
+        to_save.to_csv(f'./features/aggregated/{model}/{plate}/{plate}_group_spherized_0.001.csv.gz', compression='gzip', index = False)
 
 
 if __name__ == "__main__":
-        parser = argparse.ArgumentParser(description="Aggregate features to well level profiles")
-        parser.add_argument('--profiles', help = 'Path to folder with pth files of plate profiles', required=True)
-        parser.add_argument('--metadata', default='./features/metadata', help = 'Path to folder with csv metadata files of plate profiles', required=False)
-        parser.add_argument('--model', help = 'With which model features were obtained', required=True)
-        args = parser.parse_args()
-        os.makedirs(f'./features/aggregated/{args.model}', exist_ok = True)
-        plates = [i.split('.')[0] for i in os.listdir(args.profiles)]
-        for plate in tqdm(plates):
-                aggregate_profiles(plate, args.profiles, args.metadata, args.model)
+    parser = argparse.ArgumentParser(description="Aggregate features to well level profiles")
+    parser.add_argument('--profiles', help = 'Path to folder with pth files of plate profiles', required=True)
+    parser.add_argument('--metadata', default='./features/metadata', help = 'Path to folder with csv metadata files of plate profiles', required=False)
+    parser.add_argument('--model', help = 'With which model features were obtained', required=True)
+    args = parser.parse_args()
+    os.makedirs(f'./features/aggregated/{args.model}', exist_ok = True)
+    feature_size = {'cp-cnn':768, 'dinov1':1920, 'dinov2':1920, 'dinov3':1920, 'OpenPhenom':1920, 'SubCell':4096}
+    feature_columns = ['emb_' + str(i) for i in range(feature_size[args.model])]
+    plates = [i.split('.')[0] for i in os.listdir(args.profiles)]
+    for plate in tqdm(plates):
+        aggregate_profiles(plate, args.profiles, args.metadata, args.model, feature_size, feature_columns)
+
+    normalize_features(plates, args.model, feature_columns)

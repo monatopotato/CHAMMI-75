@@ -18,13 +18,14 @@ class GuidedCrop(object):
         crop_data = os.path.abspath(os.path.expanduser(crop_data))
         self.crop_data_dir = Path(crop_data)
         assert self.crop_data_dir.is_dir(), f"{crop_data} is not a valid directory"
-        self.data_paths = set([str(p) for p in self.crop_data_dir.glob("*.safetensors")])
+        self.data_paths = set([str(p) for p in self.crop_data_dir.glob("**/*.safetensors")])
+        print(f"Found {len(self.data_paths)} guided crop data files in {self.crop_data_dir}")
 
 
 
     def __call__(self, sample:torch.Tensor, sample_path:str) -> torch.Tensor: 
         if sample_path in self.data_paths:
-            with self.data.open(sample_path) as f:
+            with Path(sample_path).open("rb") as f:
                 image_height, image_width = sample.shape[1], sample.shape[2]
                 
                 possible_centroids = load(f.read())['data']

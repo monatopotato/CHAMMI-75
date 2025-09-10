@@ -9,7 +9,7 @@ class DatasetConfig:
     """Config dataclass outlining the structure of possible configuration variables
     Parameters:
     """
-    data_path: str
+    data_path: typing.Union[str, list[str]]
     guided_crops_path: str = None
     guided_crops_size: tuple[int, int] = None
     split_fns: list[typing.Union[callable, str]] = field(default_factory=list)
@@ -24,7 +24,10 @@ class DatasetConfig:
     use_fp32: bool = False  # If true, images will be loaded as float32 tensors, otherwise float16.
 
     def __post_init__(self):
-        self.data_path = os.path.abspath(os.path.expanduser(self.data_path))
+        if isinstance(self.data_path, list):
+            self.data_path = [os.path.abspath(os.path.expanduser(path)) for path in self.data_path]
+        else:
+            self.data_path = os.path.abspath(os.path.expanduser(self.data_path))
         
         if len(self.split_fns) > 0 and any([isinstance(split_fn, str) for split_fn in self.split_fns]):
             self.split_fns = self.get_callables(self.split_fns)

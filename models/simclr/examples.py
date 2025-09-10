@@ -7,7 +7,7 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from .multi_channel_vit import get_multi_channel_vit
+from multi_channel_vit import get_multi_channel_vit
 
 
 def setup(rank, world_size):
@@ -28,7 +28,7 @@ def cleanup():
 def run_BoC_demo(rank, world_size):
     setup(rank, world_size)
 
-    with open("simclr/model_config.yaml", "r") as f:
+    with open("model_config.yaml", "r") as f:
         model_cfg = yaml.safe_load(f)
 
     model_cfg["in_chans"] = 1
@@ -71,7 +71,7 @@ def BoC_main():
 def run_multi_channel_vit_demo(rank, world_size):
     setup(rank, world_size)
 
-    with open("simclr/model_config.yaml", "r") as f:
+    with open("model_config.yaml", "r") as f:
         model_cfg = yaml.safe_load(f)
 
     model_cfg["in_chans"] = 25  # multi-channel input

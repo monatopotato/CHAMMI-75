@@ -78,6 +78,9 @@ class CHAMMIv2(Dataset):
         ## filter metadata based on the split
         if split == "full":
             self.label_col = "label_id"
+            # metadata = metadata.sample(n=256, random_state=42).reset_index(drop=True)
+            # for _ in range(16):
+            #     print(f">>>>>>>>>> Using debug mode with 256 samples <<<<<<<<<<<<")
         else:
             self.label_col = f"{split}_label_id"
             metadata = metadata[metadata[split] == True].reset_index(drop=True)
@@ -224,7 +227,7 @@ def chammiv2_collate_fn(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor |
         "label": labels,
         "max_channel_len": max_num_channels,
         "channel_ids_list": channel_ids_list,
-        "channel_mask": channel_masks,
+        "valid_channel_masks": channel_masks,
     }
 
 
@@ -258,20 +261,31 @@ def get_chammiv2_dataloaders(
     Only return train_loader for now.
     """
     train_loader, valid_loader, test_loader = None, None, None
-    if augmentation["train"] == "simclr":
+
+    if augmentation["train"] in ["simclr", "mae"]:
         kernel_size = 11
         channel_return_numpy = False  ## return single-channel images as PyTorch tensors
 
         transform_single_channel_after_resize = None
         transform_image = None
         if not augment_on_gpu:
+            color_jitter = (
+                transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4)], p=0.8)
+                if augmentation["train"] == "simclr"
+                else transforms.Lambda(lambda x: x)
+            )
+            gaussian_blur = (
+                transforms.RandomApply([transforms.GaussianBlur(kernel_size=kernel_size, sigma=(0.1, 2.0))], p=0.5)
+                if augmentation["train"] == "simclr"
+                else transforms.Lambda(lambda x: x)
+            )
             if metadata_type == "singlechannel":
                 transform_image = transforms.Compose(
                     [
                         transforms.RandomHorizontalFlip(),
                         transforms.RandomVerticalFlip(),
-                        transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4)], p=0.8),
-                        transforms.RandomApply([transforms.GaussianBlur(kernel_size=kernel_size, sigma=(0.1, 2.0))], p=0.5),
+                        color_jitter,
+                        gaussian_blur,
                         transforms.Lambda(lambda x: x.float() / 255.0),
                     ]
                 )
@@ -280,7 +294,7 @@ def get_chammiv2_dataloaders(
                 ## may use others like Kornia or Albumentations later
                 transform_single_channel_after_resize = transforms.Compose(
                     [
-                        transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4)], p=0.8),
+                        color_jitter,
                     ]
                 )
                 transform_image = transforms.Compose(
@@ -288,7 +302,7 @@ def get_chammiv2_dataloaders(
                         transforms.RandomHorizontalFlip(),
                         transforms.RandomVerticalFlip(),
                         # transforms.RandomApply([transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1)], p=0.8), ## already applied to each single-channel image
-                        transforms.RandomApply([transforms.GaussianBlur(kernel_size=kernel_size, sigma=(0.1, 2.0))], p=0.5),
+                        gaussian_blur,
                         transforms.Lambda(lambda x: x.float() / 255.0),
                     ]
                 )
@@ -343,65 +357,3 @@ def worker_init_fn(worker_id):
     else:
         dataset.guided_crops = None
         dataset.resize = transforms.RandomResizedCrop(size=dataset.image_size, antialias=True)
-
-
-if __name__ == "__main__":
-    ############## Example of using the dataloader ##############cn
-    ####  $ cd CHAMMI-75/models
-    ####  $ python -m simclr.dataloader.chammiv2
-    from torch.utils.data import DataLoader
-    import yaml
-
-    ## read data config
-    with open("simclr/dataloader/data_config.yaml", "r") as f:
-        data_cfg = yaml.safe_load(f)["chammiv2"]
-
-    train_loader, _, _ = get_chammiv2_dataloaders(
-        data_size=data_cfg["data_size"],
-        metadata_path=data_cfg["metadata_path"],
-        image_zip_path=data_cfg["image_zip_path"],
-        sample_pair="simclr",
-        sample_pair_path=data_cfg["sample_pair_path"],
-        split="full",  ## all images in the small dataset
-        image_size=(224, 224),
-        batch_size=3,
-        num_workers=2,
-        augmentation=data_cfg["augmentation"],
-        metadata_type=data_cfg["metadata_type"],
-        use_guided_crops=data_cfg["use_guided_crops"],
-        guided_crops_path=data_cfg["guided_crops_path"],
-        augment_on_gpu=data_cfg["augment_on_gpu"],
-    )
-
-    for i, batch in enumerate(train_loader):
-        print(f"\nBatch {i}:")
-        print("image shape:", batch["image"].shape)
-        print("label shape:", batch["label"].shape)
-        print("max_channel_len:", batch["max_channel_len"])
-        print("channel_ids_list:", batch["channel_ids_list"])
-        print("channel_mask:", batch["channel_mask"].shape)
-        if i == 2:
-            break
-
-        """Example output:
-        Batch 0:
-        image shape: torch.Size([6, 1, 224, 224])
-        label shape: torch.Size([6])
-        max_channel_len: 1
-        channel_ids_list: [[17], [13], [5], [17], [13], [5]]
-        channel_mask: torch.Size([6, 1])
-
-        Batch 1:
-        image shape: torch.Size([6, 1, 224, 224])
-        label shape: torch.Size([6])
-        max_channel_len: 1
-        channel_ids_list: [[16], [12], [22], [16], [12], [22]]
-        channel_mask: torch.Size([6, 1])
-
-        Batch 2:
-        image shape: torch.Size([6, 1, 224, 224])
-        label shape: torch.Size([6])
-        max_channel_len: 1
-        channel_ids_list: [[16], [22], [18], [16], [22], [18]]
-        channel_mask: torch.Size([6, 1])
-        """

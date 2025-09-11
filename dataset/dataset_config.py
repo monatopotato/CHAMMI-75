@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import typing
 import os
 from torch.utils.data import Dataset
+from typing import Optional
 
 @dataclass
 class DatasetConfig:
@@ -10,6 +11,9 @@ class DatasetConfig:
     Parameters:
     """
     data_path: typing.Union[str, list[str]]
+    dataset_config: Optional[str] = None
+    dataset_filter: Optional[str] = None
+    output_dir: Optional[str] = None
     guided_crops_path: str = None
     guided_crops_size: tuple[int, int] = None
     split_fns: list[typing.Union[callable, str]] = field(default_factory=list)

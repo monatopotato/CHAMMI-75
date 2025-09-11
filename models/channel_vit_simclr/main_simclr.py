@@ -25,7 +25,7 @@ from torchvision import models as torchvision_models
 from torchvision.transforms.v2 import Transform
 import sys
 sys.path.append("../../")
-from dataset.dataset import IterableImageArchive
+from dataset.dataset import IterableImageArchive, ChannelViTDataset
 from dataset import dataset_config
 from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
 from torch.utils.data import DataLoader
@@ -302,6 +302,10 @@ def get_args_parser():
     parser.add_argument('--resume', action='store_true', help='Automatically resume from the latest checkpoint if available')
     
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing checkpoints and start fresh training')
+
+    parser.add_argument('--metadata_path', default=None, required=True, type=str, help='Path to metadata file')
+
+    parser.add_argument('--dataset_filter', default=None, required=True, type=str, help='Filter to select a specific dataset from the metadata')
     return parser
 
 
@@ -384,7 +388,10 @@ def train_simclr(args):
                 transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
                 dataset_size=args.dataset_size,
                 seed=42,
-                use_fp32=True
+                use_fp32=True,
+                dataset_config=args.metadata_path,
+                dataset_filter=args.dataset_filter,
+                output_dir=args.output_dir
         )
     
     # If guided cropping is enabled, we add the guided crops path and size to the config
@@ -399,19 +406,22 @@ def train_simclr(args):
                 transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
                 dataset_size=args.dataset_size,
                 seed=42,
-                use_fp32=True
+                use_fp32=True,
+                dataset_config=args.metadata_path,
+                dataset_filter=args.dataset_filter,
+                output_dir=args.output_dir
                 )
     
     # Setup the num_epochs as 100
-    dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
+    dataset = ChannelViTDataset(config)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True,  collate_fn=dataset.collate_fn, prefetch_factor=2, pin_memory=True, persistent_workers=True)
 
     simclr_transform = SimCLRBatchTransform(image_size=(224, 224))
     
     with open("model_config.yaml", "r") as f:
         model_cfg = yaml.safe_load(f)
 
-    model_cfg["in_chans"] = 1
+    model_cfg["in_chans"] = dataset.num_channels # multi-channel input
     model = get_multi_channel_vit(**model_cfg).to(args.gpu)
 
     # Calculate training steps - CRITICAL for proper scheduler setup
@@ -426,7 +436,7 @@ def train_simclr(args):
     channel_ids_list = None  # [0] * b  ## list of channel ids for each image in the batch, used for channelViT simclr
     channel_masks = None
     labels = None
-    bag_of_channels_mode = True  ## treat each channel as a separate image
+    bag_of_channels_mode = False  ## treat each channel as a separate image
 
     optimizer = get_optimizer(
         params_to_optimize=[{"params": ddp_model.parameters(), "lr": args.lr}],
@@ -457,23 +467,40 @@ def train_simclr(args):
 
     # Setup the learning rate warmup
    # Training loop
-    global_step = 0
     for epoch in range(start_epoch, args.epochs):
         print(f"Starting epoch {epoch + 1}/{args.epochs}")
         epoch_start_time = time.time()
         epoch_loss = 0.0
         num_batches = 0
         
-        for batch_idx, data in enumerate(data_loader):
-            
+        for batch_idx, (data, channel_ids_list, channel_masks) in enumerate(data_loader):
+            # Move data to GPU
+            data = data.to(args.gpu, non_blocking=True)
             # Apply SimCLR transformations
             simclr_data = simclr_transform(data)
+
+                # Duplicate channel metadata for SimCLR (since we doubled the batch)
+            simclr_channel_ids = channel_ids_list + channel_ids_list  # Duplicate for view1 + view2
+            simclr_channel_masks = channel_masks + channel_masks      # Duplicate for view1 + view2
+
+            # Convert to tensors and pad to same length
+            max_channels = len(simclr_channel_masks[0])  # All masks should have same length
             
+            # Pad channel IDs to max_channels length
+            padded_channel_ids = []
+            for channel_ids in simclr_channel_ids:
+                padded_ids = channel_ids + [-1] * (max_channels - len(channel_ids))  # Use -1 as padding
+                padded_channel_ids.append(padded_ids)
+            
+            # Convert to tensors and move to GPU
+            channel_ids_tensor = torch.tensor(padded_channel_ids, dtype=torch.long, device=args.gpu)
+            channel_masks_tensor = torch.tensor(simclr_channel_masks, dtype=torch.bool, device=args.gpu)
+    
             # Forward pass
             output = ddp_model(
                 simclr_data,
-                channel_ids_list=channel_ids_list,
-                channel_masks=channel_masks,
+                channel_ids_list=channel_ids_tensor,
+                channel_masks=channel_masks_tensor,
                 y=labels,
                 bag_of_channels_mode=bag_of_channels_mode,
             )
@@ -544,7 +571,7 @@ def train_simclr(args):
             print("-" * 50)
         
         # Save checkpoint
-        if (epoch + 1) % 1 == 0:  # Save every 1 epochs
+        if (epoch + 1) % 20 == 0:  # Save every 1 epochs
             checkpoint_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch + 1}.pt")
             os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
             torch.save({

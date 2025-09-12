@@ -10,7 +10,7 @@ CHAMMI: True  # Enable CHAMMI benchmark
 CHAMMI_IMAGES_PATH: /scr/data/CHAMMI/dataset
 CHAMMI_FEATURES_PATH: /scr/vidit/chammi_chanvit_simclr_features
 CHAMMI_SCORE_PATH: /scr/vidit/CHAMMI_scores/chammi_chanvit_simclr
-CHAMMI_BATCH_SIZE: 4
+CHAMMI_BATCH_SIZE: 16
 
 # HPA Benchmark
 HPA: False  # Enable HPA benchmark

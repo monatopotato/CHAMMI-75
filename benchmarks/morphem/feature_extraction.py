@@ -80,6 +80,10 @@ def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size):
         train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         
         all_feat = []
+
+        if model_check == 'chanvit_simclr':
+            model_instance.set_dataset(dataset_name, args.model_path)
+
         for images, label in tqdm(train_dataloader, total=len(train_dataloader)):
             patch_height, patch_width = model_instance.get_patch_info()
             images = create_pad(images, patch_width, patch_height)

@@ -68,8 +68,8 @@ def merge_csv_files(
 if __name__ == "__main__":
     
     # PATHS
-    root_dir = '/home/MORGRIDGE/akazi/idr0017_benchmarking/test_parallel_processing'  # Replace with your actual root directory
-    csv_file_name = 'auc_roc_scores.csv'
+    root_dir = '/scr/vidit/idr17_scores/dino_our_features/early_fusion'  # Replace with your actual root directory
+    csv_file_name = 'recall_50_scores.csv'
     
     
     # Find all CSV files in subdirectories

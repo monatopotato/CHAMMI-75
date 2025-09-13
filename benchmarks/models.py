@@ -497,7 +497,7 @@ class SimCLR(Model):
         self.model = get_multi_channel_vit(**model_cfg)
         
         state_dict = torch.load(
-            os.path.join(weights_path, "checkpoint_epoch_100.pt"),
+            os.path.join(weights_path, "checkpoint_epoch_47.pt"),
             map_location=f"{self.device}" if torch.cuda.is_available() else "cpu",
             weights_only=False
         )

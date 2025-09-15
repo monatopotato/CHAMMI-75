@@ -235,13 +235,13 @@ class IterableImageArchive(IterableDataset):
                 self.guided_crops.crop_size = (crop_height, crop_width)
             elif self.config.guided_crops_path:
                 self.guided_crops.crop_size = (-1, -1)
-            print("GUIDED CROP PATH: ", self.config.guided_crops_path)
-            print("GUIDED CROPO SIZ", self.guided_crops.crop_size)
+            #print("GUIDED CROP PATH: ", self.config.guided_crops_path)
+            #print("GUIDED CROPO SIZ", self.guided_crops.crop_size)
             if self.config.guided_crops_path and self.guided_crops.crop_size != (-1, -1):  # Fix this shit
                 safetensors_name = os.sep.join(file_path.filename.split(os.sep)[1:])
                 safetensors_name = safetensors_name[:-4] + ".safetensors"
                 safetensors_name = os.path.join(self.config.guided_crops_path, safetensors_name)
-                print(safetensors_name)
+                #print(safetensors_name)
                 if safetensors_name in self.guided_crops.data_paths:
                     image_tensor = self.guided_crops(image_tensor, safetensors_name)
                 else:

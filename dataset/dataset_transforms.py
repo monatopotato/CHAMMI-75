@@ -35,7 +35,6 @@ class GuidedCrop(object):
                 
                 # Divide by 2, as we want half the crop size on each size of the center point
                 x1, y1, x2, y2 = get_crop_location(crop_height//2, crop_width//2, y, x, image_height, image_width)
-                
                 cropped_sample = sample[:, y1:y2, x1:x2]
                 return cropped_sample
         else:

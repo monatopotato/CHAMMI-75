@@ -539,7 +539,7 @@ class ChannelVITSimCLR(Model):
     def __init__(self, model_path, model_size, device):
         self.device = device
         self.dataset_channels = None # will be a list
-        simclr_config_path = os.path.join(os.path.dirname(__file__), "..", "models", "simclr", "model_config.yaml")
+        simclr_config_path = os.path.join(os.path.dirname(__file__), "..", "models", "channel_vit_simclr", "model_config.yaml")
         with open(simclr_config_path, "r") as f:
             model_cfg = yaml.safe_load(f)
         self.model_path = model_path

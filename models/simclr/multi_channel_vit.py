@@ -662,6 +662,17 @@ def get_multi_channel_vit(model_size: str, patch_size=16, **kwargs):
             norm_layer=partial(nn.LayerNorm, eps=1e-6),
             **kwargs,
         )
+    elif model_size == "large":
+        model = MultiChannelViT(
+            patch_size=patch_size,
+            embed_dim=1024,
+            depth=24,
+            num_heads=16,
+            mlp_ratio=4,
+            qkv_bias=True,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6),
+            **kwargs,
+        )
     else:
         raise ValueError(f"Unknown model name: {model_size}")
     return model

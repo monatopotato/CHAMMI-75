@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from einops import rearrange, repeat
-from .vit import Block, Mlp
+from vit import Block, Mlp
 
 
 def exists(val):

@@ -136,7 +136,7 @@ class SaturationNoiseInjector(nn.Module):
         return x
 
 
-class TensorAugmentationDINO(object):
+class TensorAugmentationMAE(object):
     def __init__(self):
         flips = transforms.Compose(
             [
@@ -285,7 +285,7 @@ def main(args):
                 use_fp32 = args.use_fp32,  # Use float32 for images
                 guided_crops_path = args.guided_crops_path,
                 guided_crops_size = args.guided_crops_size,
-                transform=TensorAugmentationDINO(),
+                transform=TensorAugmentationMAE(),
                 dataset_size=args.dataset_size,
                 seed=seed,
                 )
@@ -296,7 +296,7 @@ def main(args):
                 num_procs = misc.get_world_size(), # maybe works? brother needs to check!
                 proc = misc.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
                 use_fp32 = args.use_fp32,  # Use float32 for images
-                transform=TensorAugmentationDINO(),
+                transform=TensorAugmentationMAE(),
                 dataset_size=args.dataset_size,
                 seed=seed,
                 )

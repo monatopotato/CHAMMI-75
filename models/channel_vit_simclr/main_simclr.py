@@ -476,6 +476,7 @@ def train_simclr(args):
         for batch_idx, (data, channel_ids_list, channel_masks) in enumerate(data_loader):
             # Move data to GPU
             data = data.to(args.gpu, non_blocking=True)
+            print(f"Data shape: {data.shape}")  # Debugging line to check data shape
             # Apply SimCLR transformations
             simclr_data = simclr_transform(data)
 

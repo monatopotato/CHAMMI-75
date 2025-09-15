@@ -10,10 +10,10 @@ import numpy as np
 import random
 import timm
 
-from .vit import Block
-from .model_utils import trunc_normal_, maybe_flatten_images
-from .mae_modules import ChAMAEViTDecoder, CAMAEDecoder
-from .loss_func import compute_proxy_loss, MultiPosConLoss, SimCLRContrastiveLoss, FourierLoss
+from vit import Block
+from model_utils import trunc_normal_, maybe_flatten_images
+from mae_modules import ChAMAEViTDecoder, CAMAEDecoder
+from loss_func import compute_proxy_loss, MultiPosConLoss, SimCLRContrastiveLoss, FourierLoss
 
 
 class PatchEmbedPerChannel(nn.Module):

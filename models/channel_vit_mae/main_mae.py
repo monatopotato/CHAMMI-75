@@ -1,5 +1,5 @@
 '''
-Main SimCLR training script with original data loader
+Main MAE training script with original data loader
 
 '''
 
@@ -24,8 +24,8 @@ from torchvision import datasets, transforms
 from torchvision import models as torchvision_models
 from torchvision.transforms.v2 import Transform
 import sys
-sys.path.append("../")
-from dataset.dataset import IterableImageArchive
+sys.path.append("../../")
+from dataset.dataset import IterableImageArchive, ChannelViTDataset
 from dataset import dataset_config
 from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
 from torch.utils.data import DataLoader
@@ -68,7 +68,7 @@ class PerImageNormalize(nn.Module):
             )
 
         # Now we can pass x through our InstanceNorm2d layer
-        return self.instance_norm(x).to(torch.float16)
+        return self.instance_norm(x)
     
 
 class SaturationNoiseInjector(nn.Module):
@@ -302,74 +302,34 @@ def get_args_parser():
     parser.add_argument('--resume', action='store_true', help='Automatically resume from the latest checkpoint if available')
     
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing checkpoints and start fresh training')
+
+    parser.add_argument('--metadata_path', default=None, required=True, type=str, help='Path to metadata file')
+
+    parser.add_argument('--dataset_filter', default=None, required=True, type=str, help='Filter to select a specific dataset from the metadata')
     return parser
 
 
-
-class SimCLRBatchTransform(object):
-    """
-    Simple SimCLR transform to apply in your training loop.
-    Takes a batch [B, C, H, W] and returns [2*B, C, H, W] with SimCLR ordering.
-    """
-    
-    def __init__(self, image_size=(224, 224), kernel_size=11):
-        """
-        Args:
-            image_size (tuple): Target image size (height, width)
-            kernel_size (int): Kernel size for Gaussian blur
-        """
-        self.image_size = image_size
-        self.kernel_size = kernel_size
-        
-        # Create augmentation pipeline
-        self.augmentation_pipeline = v2.Compose([
-            v2.RandomResizedCrop(
-                size=self.image_size, 
-                scale=(0.2, 1.0),
-                interpolation=v2.InterpolationMode.BICUBIC,
-                antialias=True
-            ),
-            v2.RandomHorizontalFlip(p=0.5),
-            v2.RandomVerticalFlip(p=0.5),
-            v2.RandomApply([v2.GaussianBlur(kernel_size=self.kernel_size, sigma=(0.1, 2.0))], p=0.5),
+class MAETransform(object):
+    def __init__(self):
+        flips = transforms.Compose(
+            [
+                v2.RandomHorizontalFlip(p=0.5),
+                v2.RandomVerticalFlip(p=0.5)
+            ]
+        )
+        self.common_normalization = transforms.Compose([
+            v2.RandomResizedCrop(224, scale=(0.9, 1.0), ratio=(0.9, 1.1), antialias=True),
+            SaturationNoiseInjector(low=200, high=255),
+            v2.ToTensor(),
+            PerImageNormalize(),
+            flips
         ])
-    
-    def __call__(self, batch):
-        """
-        Apply SimCLR transformations to a batch.
-        
-        Args:
-            batch (torch.Tensor): Input batch [B, C, H, W]
-            
-        Returns:
-            torch.Tensor: Output batch [2*B, C, H, W] ordered as:
-                         [img1_view1, img2_view1, ..., img1_view2, img2_view2, ...]
-        """
-        # Normalize to [0, 1] if input is uint8
-        if batch.dtype == torch.uint8:
-            batch = batch.float() / 255.0
-        elif batch.dtype == torch.float16:
-            batch = batch.float()  # Convert float16 to float32
-        
-        batch_size = batch.shape[0]
-        
-        # Generate first views
-        view1_list = []
-        for i in range(batch_size):
-            view1 = self.augmentation_pipeline(batch[i])
-            view1_list.append(view1)
-        
-        # Generate second views
-        view2_list = []
-        for i in range(batch_size):
-            view2 = self.augmentation_pipeline(batch[i])
-            view2_list.append(view2)
-        
-        # Stack in SimCLR order: all view1s first, then all view2s
-        all_views = view1_list + view2_list
-        return torch.stack(all_views, dim=0)
 
-def train_simclr(args):
+    def __call__(self, image):
+        image = self.common_normalization(image)
+        return image
+
+def train_mae(args):
     distributed_utils.init_distributed_mode(args)
     distributed_utils.fix_random_seeds(args.seed)
 
@@ -381,10 +341,13 @@ def train_simclr(args):
                 split_fns=[get_proc_split, randomize, split_for_workers],
                 num_procs = distributed_utils.get_world_size(), # maybe works? brother needs to check!
                 proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
-                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
+                transform=MAETransform(),
                 dataset_size=args.dataset_size,
                 seed=42,
-                use_fp32=True
+                use_fp32=True,
+                dataset_config=args.metadata_path,
+                dataset_filter=args.dataset_filter,
+                output_dir=args.output_dir
         )
     
     # If guided cropping is enabled, we add the guided crops path and size to the config
@@ -396,22 +359,26 @@ def train_simclr(args):
                 proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
                 guided_crops_path = args.guided_crops_path,
                 guided_crops_size = args.guided_crops_size,
-                transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
+                transform=MAETransform(),
                 dataset_size=args.dataset_size,
                 seed=42,
-                use_fp32=True
+                use_fp32=True,
+                dataset_config=args.metadata_path,
+                dataset_filter=args.dataset_filter,
+                output_dir=args.output_dir
                 )
     
     # Setup the num_epochs as 100
-    dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=2, pin_memory=True, persistent_workers=True)
+    dataset = ChannelViTDataset(config)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, worker_init_fn=dataset.worker_init_fn, drop_last=True,  collate_fn=dataset.collate_fn, prefetch_factor=2, pin_memory=True, persistent_workers=True)
 
-    simclr_transform = SimCLRBatchTransform(image_size=(224, 224))
+    mae_transform = MAETransform()
     
     with open("model_config.yaml", "r") as f:
         model_cfg = yaml.safe_load(f)
 
-    model_cfg["in_chans"] = 1
+    model_cfg["in_chans"] = dataset.num_channels # multi-channel input
+    model_cfg["decoder"]["num_channels"] = dataset.num_channels # set the number of channels for the decoder
     model = get_multi_channel_vit(**model_cfg).to(args.gpu)
 
     # Calculate training steps - CRITICAL for proper scheduler setup
@@ -421,12 +388,12 @@ def train_simclr(args):
 
 
 
-    ddp_model = DDP(model, device_ids=[args.gpu])
+    ddp_model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
 
     channel_ids_list = None  # [0] * b  ## list of channel ids for each image in the batch, used for channelViT simclr
     channel_masks = None
     labels = None
-    bag_of_channels_mode = True  ## treat each channel as a separate image
+    bag_of_channels_mode = False  ## treat each channel as a separate image
 
     optimizer = get_optimizer(
         params_to_optimize=[{"params": ddp_model.parameters(), "lr": args.lr}],
@@ -457,23 +424,40 @@ def train_simclr(args):
 
     # Setup the learning rate warmup
    # Training loop
-    global_step = 0
     for epoch in range(start_epoch, args.epochs):
         print(f"Starting epoch {epoch + 1}/{args.epochs}")
         epoch_start_time = time.time()
         epoch_loss = 0.0
         num_batches = 0
         
-        for batch_idx, data in enumerate(data_loader):
+        for batch_idx, (data, channel_ids_list, channel_masks) in enumerate(data_loader):
+            # Move data to GPU
+            data = data.to(args.gpu, non_blocking=True)
+
+            data = data.to(torch.float32)  # Ensure data is in float32
+
+            #print(f"Data shape: {data.shape}")  # Debugging line to check data shape
+            # Apply MAE transformations
+            #mae_data = mae_transform(data)
+
+            # Convert to tensors and pad to same length
+            max_channels = len(channel_masks[0])  # All masks should have same length
+
+            # Pad channel IDs to max_channels length
+            padded_channel_ids = []
+            for channel_ids in channel_ids_list:
+                padded_ids = channel_ids + [0] * (max_channels - len(channel_ids))  # Use -1 as padding
+                padded_channel_ids.append(padded_ids)
             
-            # Apply SimCLR transformations
-            simclr_data = simclr_transform(data)
-            
+            # Convert to tensors and move to GPU
+            channel_ids_tensor = torch.tensor(padded_channel_ids, dtype=torch.long, device=args.gpu)
+            channel_masks_tensor = torch.tensor(channel_masks, dtype=torch.bool, device=args.gpu)
+
             # Forward pass
             output = ddp_model(
-                simclr_data,
-                channel_ids_list=channel_ids_list,
-                channel_masks=channel_masks,
+                data,
+                channel_ids_list=channel_ids_tensor,
+                valid_channel_masks=channel_masks_tensor,
                 y=labels,
                 bag_of_channels_mode=bag_of_channels_mode,
             )
@@ -544,7 +528,7 @@ def train_simclr(args):
             print("-" * 50)
         
         # Save checkpoint
-        if (epoch + 1) % 1 == 0:  # Save every 1 epochs
+        if (epoch + 1) % 20 == 0:  # Save every 1 epochs
             checkpoint_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch + 1}.pt")
             os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
             torch.save({
@@ -564,5 +548,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('SimCLR', parents=[get_args_parser()])
     args = parser.parse_args()
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    train_simclr(args)
+    train_mae(args)
 

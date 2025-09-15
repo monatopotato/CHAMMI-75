@@ -27,7 +27,7 @@ from einops import rearrange
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 
-from .model_utils import trunc_normal_
+from model_utils import trunc_normal_
 
 
 def exists(val):

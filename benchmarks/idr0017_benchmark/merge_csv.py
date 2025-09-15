@@ -67,9 +67,13 @@ def merge_csv_files(
 
 if __name__ == "__main__":
     
-    # PATHS
-    root_dir = '/scr/vidit/idr17_scores/dino_our_features/early_fusion'  # Replace with your actual root directory
-    csv_file_name = 'recall_50_scores.csv'
+    import argparse
+    parser = argparse.ArgumentParser(description="Merge CSV files in subdirectories.")
+    parser.add_argument('--root_dir', type=str, default='/scr/vidit/idr17_scores/dino_idr_cell_features/early_fusion', help='Root directory containing CSV files')
+    parser.add_argument('--csv_file_name', type=str, default='recall_50_scores.csv', help='CSV file name to merge')
+    args = parser.parse_args()
+    root_dir = args.root_dir
+    csv_file_name = args.csv_file_name
     
     
     # Find all CSV files in subdirectories

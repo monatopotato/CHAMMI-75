@@ -539,7 +539,7 @@ class ChannelVITSimCLR(Model):
     def __init__(self, model_path, model_size, device):
         self.device = device
         self.dataset_channels = None # will be a list
-        simclr_config_path = os.path.join(os.path.dirname(__file__), "..", "models", "simclr", "model_config.yaml")
+        simclr_config_path = os.path.join(os.path.dirname(__file__), "..", "models", "channel_vit_simclr", "model_config.yaml")
         with open(simclr_config_path, "r") as f:
             model_cfg = yaml.safe_load(f)
         self.model_path = model_path
@@ -562,6 +562,85 @@ class ChannelVITSimCLR(Model):
         self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize(), v2.Resize(size=(224, 224), antialias=True)])
 
         self.feature_file = "pretrained_chanvit_simclr_features.npy"
+        # Create model with in_chans=1 to match training setup
+        self.model.eval()
+        self.model.to(self.device)
+
+    # Add to config
+    def to(self, device):
+        self.model = self.model.to(device)
+
+    def set_dataset(self, dataset_name, model_path):
+        if dataset_name == "Allen":
+            if '75ds' in model_path or '10ds' in model_path:
+                self.dataset_channels = ['nucleus', 'cell body', 'protein']
+            else:
+                self.dataset_channels = ['nucleus', 'membrane', 'protein']
+        elif dataset_name == "CP":
+            if '75ds' in model_path or '10ds' in model_path:
+                self.dataset_channels = ['nucleus', 'endoplasmic reticulum', 'RNA', 'golgi body', 'mitochondria']
+            else:
+                self.dataset_channels = ['nucleus', 'cp2', 'er', 'cp4', 'cp5']
+        elif dataset_name == "HPA":
+            if '75ds' in model_path or '10ds' in model_path:
+                self.dataset_channels = ['microtubules', 'protein', 'nucleus', 'endoplasmic reticulum']
+            else:
+                self.dataset_channels = ['microtubules', 'protein', 'nucleus', 'er']
+        else:
+            raise ValueError("Dataset name supplied is not supported. This class only supports CHAMMIv1 benchmarking.")
+    
+    # Add to config
+    def get_model(self):
+        return self.model, self.transform
+    
+    # Add to config
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+        
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        return patch_size[1], patch_size[2]
+
+    def __call__(self, images):
+        channel_ids = [[self.channel_map[chan] if chan in self.dataset_channels else 0 for chan in self.dataset_channels]] * len(images)
+        channel_masks = [[True for _ in range(images.shape[1])]]*len(images)
+        channel_ids_tensor = torch.tensor(channel_ids, dtype=torch.long, device=self.device)
+        channel_masks_tensor = torch.tensor(channel_masks, dtype=torch.bool, device=self.device)
+        with torch.no_grad():
+            images = images.to(self.device)
+            output = self.model(images, channel_ids_list=channel_ids_tensor, channel_masks=channel_masks_tensor)
+            return output['output'].cpu().detach().numpy()
+        
+
+class ChannelVITMAE(Model):
+    def __init__(self, model_path, model_size, device):
+        self.device = device
+        self.dataset_channels = None # will be a list
+        simclr_config_path = os.path.join(os.path.dirname(__file__), "..", "models", "channel_vit_mae", "model_config.yaml")
+        with open(simclr_config_path, "r") as f:
+            model_cfg = yaml.safe_load(f)
+        self.model_path = model_path
+
+        
+        with open(os.path.join(model_path, 'channel_map.json'), 'r') as f:
+            channel_map_file = f.read()
+        self.channel_map = json.loads(channel_map_file)
+
+        model_cfg["in_chans"] = len(self.channel_map)  # single channel
+        self.model = get_multi_channel_vit(**model_cfg)
+
+        state_dict = torch.load(
+            os.path.join(model_path, "checkpoint_epoch_100.pt"),
+            map_location=f"{self.device}" if torch.cuda.is_available() else "cpu",
+            weights_only=False
+        )
+        self.model.load_state_dict(state_dict["model_state_dict"], strict=False)
+        self.model.eval()
+        self.transform = torchvision.transforms.Compose([SaturationNoiseInjector(), PerImageNormalize(), v2.Resize(size=(224, 224), antialias=True)])
+
+        self.feature_file = "pretrained_chanvit_mae_features.npy"
         # Create model with in_chans=1 to match training setup
         self.model.eval()
         self.model.to(self.device)
@@ -636,6 +715,8 @@ def get_model(model_name: str = None, device: torch.device = None, model_path: s
         model = SimCLR(device=device, weights_path=model_path, model_size=model_size)
     elif model_name == "chanvit_simclr":
         model = ChannelVITSimCLR(model_path=model_path, model_size=model_size, device=device)
+    elif model_name == "chanvit_mae":
+        model = ChannelVITMAE(model_path=model_path, model_size=model_size, device=device)
     else:
-        raise ValueError("Model not recognized. Please use 'mae', 'vit', 'dinov2', 'openphenom', or 'simclr'.")
+        raise ValueError("Model not recognized. Please use 'mae', 'vit', 'dinov2', 'openphenom', 'simclr', 'chanvit_simclr' or 'chanvit_mae'.")
     return model

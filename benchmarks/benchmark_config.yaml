@@ -1,15 +1,15 @@
 # Master Config file to change variables around
 
-MODEL_TYPE: chanvit_simclr   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
-MODEL_PATH: /scr/vidit/Foundation_Models/iclr_model_weights/SimCLR_CHANViT_CHAMMI
+MODEL_TYPE: chanvit_mae   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
+MODEL_PATH: /scr/vidit/Foundation_Models/iclr_model_weights/MAE_CHANViT_CHAMMI
 NUM_GPUS: 1
 MODEL_MODE: None
 
 # CHAMMI Benchmark
 CHAMMI: True  # Enable CHAMMI benchmark
 CHAMMI_IMAGES_PATH: /scr/data/CHAMMI/dataset
-CHAMMI_FEATURES_PATH: /scr/vidit/chammi_simclr_features
-CHAMMI_SCORE_PATH: /scr/vidit/CHAMMI_scores/SimCLR_Large_47
+CHAMMI_FEATURES_PATH: /scr/vidit/chammi_mae_features
+CHAMMI_SCORE_PATH: /scr/vidit/CHAMMI_scores/MAE_CHANViT_CHAMMI
 CHAMMI_BATCH_SIZE: 16
 
 # HPA Benchmark

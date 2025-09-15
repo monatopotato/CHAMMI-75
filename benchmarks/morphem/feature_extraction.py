@@ -83,6 +83,8 @@ def get_save_features(feature_dir, root_dir, model_check, batch_size):
 
         if model_check == 'chanvit_simclr':
             model_instance.set_dataset(dataset_name, args.model_path)
+        elif model_check == 'chanvit_mae':
+            model_instance.set_dataset(dataset_name, args.model_path)
 
         for images, label in tqdm(train_dataloader, total=len(train_dataloader)):
             patch_height, patch_width = model_instance.get_patch_info()

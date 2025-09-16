@@ -8,6 +8,7 @@ import utils
 import itertools
 
 def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
+    print(profiles.shape)
     #profiles = utils.remove_empty_wells(profiles)
     reference_col = "Metadata_reference_index"
     profiles_activity = assign_reference_index(
@@ -21,7 +22,11 @@ def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
     neg_sameby = ["Metadata_Plate"]
     neg_diffby = [reference_col]
     metadata = profiles_activity.filter(regex="^Metadata")
-    profiles_features_only = profiles_activity.filter(regex="^emb").values
+
+    if model == 'cellprofiler':
+        profiles_features_only = profiles_activity.filter(regex="^(?!Metadata)").values
+    else:
+        profiles_features_only = profiles_activity.filter(regex="^emb").values
 
     activity_ap = map.average_precision(
         meta = metadata, 
@@ -56,8 +61,6 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
     active_compounds = activity_map.query("below_corrected_p")["Metadata_broad_sample"]
     consensus_profiles = profiles.query("Metadata_broad_sample in @active_compounds")
 
-    feature_cols = [c for c in consensus_profiles.columns if not c.startswith("Metadata")]
-
     total_targets = (
         profiles.merge(
             utils.read_metadata(), on="Metadata_broad_sample", how="left"
@@ -76,11 +79,15 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
         .assign(
             Metadata_matching_target=lambda x: x.Metadata_target_list.str.split("|")
         )
-        .drop(["Metadata_target_list"], axis=1)
+        .drop(["Metadata_target_list", "col"], axis=1)
     )
 
     metadata_df = consensus_profiles.filter(regex="^(Metadata)")
-    feature_values = consensus_profiles.filter(regex="^(emb)").values
+    print(consensus_profiles.columns)
+    if model == 'cellprofiler':
+        feature_values = consensus_profiles.filter(regex="^(?!Metadata)").values
+    else:
+        feature_values = consensus_profiles.filter(regex="^(emb)").values
 
     pos_sameby = [multi_label_col]
     pos_diffby = []

@@ -34,7 +34,7 @@ def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model, 
 def normalize_features(plates, model, feature_columns):
     group_df = pd.DataFrame()
     for plate in plates:
-        cellprofiler_plate = pd.read_csv(f'./features/cellprofiler/{plate}/{plate}_normalized_feature_select_negcon_batch.csv.gz')
+        cellprofiler_plate = pd.read_csv(f'./features/aggregated/cellprofiler/{plate}/{plate}_normalized_feature_select_negcon_batch.csv.gz')
         cellprofiler_plate = cellprofiler_plate[[i for i in cellprofiler_plate.columns if 'Metadata' in i]]
         dl_plate = pd.read_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
         dl_plate = pd.merge(cellprofiler_plate, dl_plate, how = 'left', left_on=['Metadata_Plate', 'Metadata_Well'], right_on = ['plate', 'well']).reset_index(drop=True)

@@ -8,8 +8,6 @@ import utils
 import itertools
 
 def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
-    print(profiles.shape)
-    #profiles = utils.remove_empty_wells(profiles)
     reference_col = "Metadata_reference_index"
     profiles_activity = assign_reference_index(
         profiles,
@@ -83,7 +81,6 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
     )
 
     metadata_df = consensus_profiles.filter(regex="^(Metadata)")
-    print(consensus_profiles.columns)
     if model == 'cellprofiler':
         feature_values = consensus_profiles.filter(regex="^(?!Metadata)").values
     else:

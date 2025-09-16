@@ -19,7 +19,7 @@ def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model, 
     if model in ['dinov1', 'dinov2', 'dinov3']:
         features = np.load(os.path.join(profiles_folder, f'{plate_filename}.npy' ))
         features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npy' )))
-    if model == 'SubCell':
+    if model in ['subcell', 'openphenom']:
         features = pd.DataFrame(np.load(os.path.join(profiles_folder, plate_filename + '.npz' ))['features'])
 
     assert len(features) == len(plate_metadata)
@@ -28,7 +28,6 @@ def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model, 
     profile_data = profile_data.groupby(["batch", "plate", "well"])[feature_columns].mean().reset_index()
     plate = plate_filename.split('.')[0]
     os.makedirs(f'./features/aggregated/{model}/{plate}', exist_ok = True)
-    print(profile_data.columns)
     profile_data.to_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
 
 
@@ -40,6 +39,10 @@ def normalize_features(plates, model, feature_columns):
         dl_plate = pd.read_parquet(f'./features/aggregated/{model}/{plate}/{plate}.parquet')
         dl_plate = pd.merge(cellprofiler_plate, dl_plate, how = 'left', left_on=['Metadata_Plate', 'Metadata_Well'], right_on = ['plate', 'well']).reset_index(drop=True)
         dl_plate.drop(columns = ['batch', 'plate', 'well'], inplace = True)
+        if model == 'cp-cnn':
+            dl_plate = pd.concat([dl_plate.drop(columns=['all_emb']), dl_plate['all_emb'].apply(pd.Series)], axis=1).reset_index(drop = True)
+            dl_plate.rename(columns = dict(zip([i for i in range(672)], feature_columns)), inplace = True, errors='raise')
+        
         dl_plate.to_csv(f'./features/aggregated/{model}/{plate}/{plate}_raw.csv.gz', compression='gzip', index = False)
         group_df = pd.concat((group_df, dl_plate)).reset_index(drop = True)
 
@@ -51,15 +54,17 @@ def normalize_features(plates, model, feature_columns):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Aggregate features to well level profiles")
-    parser.add_argument('--profiles', help = 'Path to folder with pth files of plate profiles', required=True)
+    parser.add_argument('--profiles', help = 'Path to folder with pth files of plate profiles', required=False)
     parser.add_argument('--metadata', default='./features/metadata', help = 'Path to folder with csv metadata files of plate profiles', required=False)
     parser.add_argument('--model', help = 'With which model features were obtained', required=True)
     args = parser.parse_args()
     os.makedirs(f'./features/aggregated/{args.model}', exist_ok = True)
-    feature_size = {'cp-cnn':768, 'dinov1':1920, 'dinov2':1920, 'dinov3':1920, 'OpenPhenom':1920, 'SubCell':4096}
+    feature_size = {'cp-cnn':672, 'dinov1':1920, 'dinov2':1920, 'dinov3':1920, 'openphenom':1920, 'subcell':4096}
     feature_columns = ['emb_' + str(i) for i in range(feature_size[args.model])]
-    plates = [i.split('.')[0] for i in os.listdir(args.profiles)]
-    for plate in tqdm(plates):
-        aggregate_profiles(plate, args.profiles, args.metadata, args.model, feature_size, feature_columns)
+    plates = ['BR00117010', 'BR00117011', 'BR00117012', 'BR00117013', 'BR00117024', 'BR00117025', 'BR00117026'] # CP-JUMP1 compound plat
+    
+    if args.model != 'cp-cnn':
+        for plate in tqdm(plates):
+            aggregate_profiles(plate, args.profiles, args.metadata, args.model, feature_size, feature_columns)
 
     normalize_features(plates, args.model, feature_columns)

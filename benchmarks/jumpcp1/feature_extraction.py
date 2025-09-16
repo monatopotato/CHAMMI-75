@@ -58,15 +58,6 @@ def get_parser():
 
 
 if __name__ == '__main__':
-
     parser = get_parser()
-    args = parser.parse_args()
-
-    root_dir = args.root_dir
-    feat_dir = args.feat_dir
-    model = args.model
-    gpu = args.gpu
-    batch_size = args.batch_size
- 
-    get_save_features(feat_dir, root_dir, model, gpu, batch_size)
-
+    args = parser.parse_args() 
+    get_save_features(args.feat_dir, args.root_dir, args.model, args.gpu, args.batch_size)

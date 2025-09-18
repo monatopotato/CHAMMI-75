@@ -1,6 +1,7 @@
 # Master Config file to change variables around
 
-MODEL_TYPE: vit   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell in some cases
+
+MODEL_TYPE: vit   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
 MODEL_PATH: /scr/vidit/Foundation_Models/iclr_model_weights/SimCLR_CHANViT_Allen
 NUM_GPUS: 1
 MODEL_MODE: None
@@ -15,9 +16,9 @@ CHAMMI_BATCH_SIZE: 64
 
 # HPA Benchmark
 HPA: False  # Enable HPA benchmark
-HPA_IMAGES_PATH: /path/to/hpa/images
-HPA_FEATURES_PATH: /path/to/hpa/Features
-HPA_SCORE_PATH: /path/to/hpa/score
+HPA_IMAGES_PATH: /scr/data/mini-hpa
+HPA_FEATURES_PATH: /scr/vidit/mini-hpa-scores/DINO-IDRCell
+HPA_SCORE_PATH: /scr/vidit/mini-hpa-scores/DINO-IDRCell
 HPA_BATCH_SIZE: 16
 HPA_NUM_WORKERS: 8
 
@@ -40,7 +41,7 @@ IDR_THREADS: 16
 # Neuron Features Benchmark
 NEURON_FEATURES: False  # Enable Neuron Features benchmark
 NEURON_IMAGES_PATH: /scr/vidit/neural_features/
-NEURON_FEATURES_PATH: /scr/vidit/neural_features/neuron_feature_extraction
-NEURON_SCORE_PATH: /scr/vidit/neural_features/neuron_feature_extraction
+NEURON_FEATURES_PATH: /scr/vidit/neural_features/neuron_feature_extraction/DINO_IDRCell
+NEURON_SCORE_PATH: /scr/vidit/neural_features/neuron_feature_extraction/DINO_IDRCell
 NEURON_BATCH_SIZE: 16
 NEURON_NUM_WORKERS: 8

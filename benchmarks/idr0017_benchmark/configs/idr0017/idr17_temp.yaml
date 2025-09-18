@@ -4,11 +4,11 @@ feature_extraction:
   feature_agg: true
   model: vit
   model_mode: None
-  model_path: /scr/vidit/Foundation_Models/iclr_model_weights/DINO_IDRCELL
+  model_path: /scr/vidit/Foundation_Models/iclr_model_weights/DINO_CHAMMI-75_LARGE
   resize: 224
   resources:
     batch_size: 2048
-    num_gpus: 4
+    num_gpus: 2
     num_workers: 8
     threads: 16
   subcell_channel_map:

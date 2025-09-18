@@ -64,6 +64,7 @@ def main():
             f"--feat_dir {config['CHAMMI_FEATURES_PATH']} "
             f"--model {config['MODEL_TYPE']} "
             f"--model_path {config['MODEL_PATH']} "
+            f"--model_size {config['MODEL_SIZE']} "
             f"--batch_size {config['CHAMMI_BATCH_SIZE']} "
         )
         run_command(chammi_cmd, cwd=morphem_dir)

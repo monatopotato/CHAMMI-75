@@ -20,8 +20,9 @@ def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
     neg_sameby = ["Metadata_Plate"]
     neg_diffby = [reference_col]
     metadata = profiles_activity.filter(regex="^Metadata")
-
     if model == 'cellprofiler':
+        brightfield_features = [i for i in profiles_activity.columns if 'ZBF' in i or 'Brightfield' in i]
+        profiles_activity = profiles_activity.drop(columns = brightfield_features)
         profiles_features_only = profiles_activity.filter(regex="^(?!Metadata)").values
     else:
         profiles_features_only = profiles_activity.filter(regex="^emb").values
@@ -58,6 +59,15 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
     multi_label_col = "Metadata_matching_target"
     active_compounds = activity_map.query("below_corrected_p")["Metadata_broad_sample"]
     consensus_profiles = profiles.query("Metadata_broad_sample in @active_compounds")
+    if model == 'cellprofiler':
+        brightfield_features = [i for i in consensus_profiles.columns if 'ZBF' in i or 'Brightfield' in i]
+        feature_columns = [i for i in consensus_profiles.columns if 'Metadata' not in i]
+    else:
+        feature_columns = [i for i in consensus_profiles.columns if 'emb_' in i]
+    
+    columns = ["Metadata_broad_sample"] + feature_columns
+    consensus_profiles = consensus_profiles[columns]
+    consensus_profiles = consensus_profiles.groupby(["Metadata_broad_sample"], as_index=False)[feature_columns].median()
 
     total_targets = (
         profiles.merge(
@@ -82,6 +92,8 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
 
     metadata_df = consensus_profiles.filter(regex="^(Metadata)")
     if model == 'cellprofiler':
+        brightfield_features = [i for i in consensus_profiles.columns if 'ZBF' in i or 'Brightfield' in i]
+        consensus_profiles = consensus_profiles.drop(columns = brightfield_features)
         feature_values = consensus_profiles.filter(regex="^(?!Metadata)").values
     else:
         feature_values = consensus_profiles.filter(regex="^(emb)").values

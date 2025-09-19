@@ -19,13 +19,13 @@ def configure_dataset(root_dir, plate_name, transform=None):
     return dataset
 
 
-def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size):
+def get_save_features(feature_dir, root_dir, model_check, gpu, batch_size, model_path, model_size):
     plates_for_fe = ['BR00117010', 'BR00117011', 'BR00117012', 'BR00117013', 'BR00117024', 'BR00117025', 'BR00117026'] # CP-JUMP1 compound plates
     if not os.path.exists(args.feat_dir):
         os.makedirs(args.feat_dir, exist_ok=True)
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
-    model_instance = get_model(model_name=model_check, device=device, model_path=args.model_path, model_size=args.model_size)
+    model_instance = get_model(model_name=model_check, device=device, model_path=model_path, model_size=model_size)
     model, transform = model_instance.get_model()
     model = model.to(device)
         
@@ -60,4 +60,4 @@ def get_parser():
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args() 
-    get_save_features(args.feat_dir, args.root_dir, args.model, args.gpu, args.batch_size)
+    get_save_features(args.feat_dir, args.root_dir, args.model, args.gpu, args.batch_size, args.model_path, args.model_size)

@@ -17,3 +17,8 @@ Well-level profiles are expected to be in `features` folder.
 SubCell feature extraction - separate code was used:
 - images were center-croped 128x128 and then resized to 256x256 
 - [example code and repository](https://github.com/CaicedoLab/SubCell_CellPainting)
+
+OpenPhenom feature extraction, code in `openphenom_chtc`
+- Docker image was used with pre-installed environment and code from [original repository](https://huggingface.co/recursionpharma/OpenPhenom/)
+- CHTC cluster was used for feature extraction
+

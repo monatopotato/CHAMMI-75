@@ -12,3 +12,8 @@ Well-level profiles are expected to be in `features` folder.
 - `sc_dataset` - data loader of single-cells. Single-cell crops are prepared with DeepProfiler.  
 - `well_level_aggregation.py` - feature aggregation (mean profile of cells within the well) and batch correction. See the dicts inside for feature dimensionality.
 - `run_evaluation.py` - run benchmarks, results would appear in `results/{model}` folder. 
+
+
+SubCell feature extraction - separate code was used:
+- images were center-croped 128x128 and then resized to 256x256 
+- [example code and repository](https://github.com/CaicedoLab/SubCell_CellPainting)

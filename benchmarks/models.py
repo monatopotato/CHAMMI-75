@@ -480,9 +480,16 @@ class SubCell_Neuron_Feat(Model):
             patches = self.preprocess_input_subcell(patches)
             patches = patches.to(self.device)
             batch_feat = []
-            for image_idx in range(patches.shape[1]):
-                single_channel_patches = self._to_2chan(patches[:, image_idx, :, :].unsqueeze(1))
-                batch_feat.append(self.model(single_channel_patches).feature_vector.cpu())
+            
+            # Use first channel (nucleus) as the fixed channel
+            nucleus_channel = patches[:, 0, :, :].unsqueeze(1)  # Shape: [batch, 1, H, W]
+            
+            # Combine nucleus with each of the other 13 channels
+            for channel_idx in range(1, patches.shape[1]):
+                other_channel = patches[:, channel_idx, :, :].unsqueeze(1)  # Shape: [batch, 1, H, W]
+                # Concatenate nucleus and other channel to make 2-channel input
+                two_channel_input = torch.cat([nucleus_channel, other_channel], dim=1)  # Shape: [batch, 2, H, W]
+                batch_feat.append(self.model(two_channel_input).feature_vector.cpu())
             
             # Stack the features and return
             return torch.stack(batch_feat, dim=1)

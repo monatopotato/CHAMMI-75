@@ -1,6 +1,7 @@
 *.err
 *.out
 # Byte-compiled / optimized / DLL files
+*.txt
 __pycache__/
 *.py[cod]
 *$py.class

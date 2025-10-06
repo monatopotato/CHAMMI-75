@@ -431,7 +431,7 @@ def train_simclr(args):
 
 
 
-    ddp_model = DDP(model, device_ids=[args.gpu])
+    ddp_model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
 
     channel_ids_list = None  # [0] * b  ## list of channel ids for each image in the batch, used for channelViT simclr
     channel_masks = None
@@ -490,7 +490,7 @@ def train_simclr(args):
             # Pad channel IDs to max_channels length
             padded_channel_ids = []
             for channel_ids in simclr_channel_ids:
-                padded_ids = channel_ids + [-1] * (max_channels - len(channel_ids))  # Use -1 as padding
+                padded_ids = channel_ids + [0] * (max_channels - len(channel_ids))  # Use -1 as padding
                 padded_channel_ids.append(padded_ids)
             
             # Convert to tensors and move to GPU

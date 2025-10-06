@@ -1,4 +1,5 @@
-# CHAMMI-75
+# CHAMMI-75: pre-training multi-channel models with heterogeneous microscopy images
+
 
 ## Commands to run DINOv1
 

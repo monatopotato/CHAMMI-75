@@ -28,6 +28,10 @@ class DatasetConfig:
     dataset_filter: str = None
     output_dir: str = './'
 
+    # Adding sampling
+    samples_per_epoch: Optional[int] = None  # If set, sample this many images per epoch
+    shuffle_each_epoch: bool = True  # Whether to reshuffle when sampling
+
     def __post_init__(self):
         if isinstance(self.data_path, list):
             self.data_path = [os.path.abspath(os.path.expanduser(path)) for path in self.data_path]

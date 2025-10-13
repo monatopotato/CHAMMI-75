@@ -16,6 +16,7 @@ import polars as pl
 import math
 import itertools
 from collections import defaultdict
+import random
 
 disable_beta_transforms_warning()
 
@@ -95,11 +96,11 @@ class IterableImageArchive(IterableDataset):
                     crop_height = random.randint(int(baseline[0] * 0.9), int(baseline[0] * 1.1))
                     crop_width = random.randint(int(baseline[1] * 0.9), int(baseline[1] * 1.1))
                     self.guided_crops.crop_size = (crop_height, crop_width)
-                else:
+                elif self.config.guided_crops_path is not None:
                     self.guided_crops.crop_size = (-1, -1)
 
                 # Apply guided crops if available
-                if self.guided_crops.crop_size != (-1, -1) and self.config.guided_crops_path:
+                if self.config.guided_crops_path and self.guided_crops.crop_size != (-1, -1):
                     safetensors_name = file_path.filename[:-4] + ".safetensors"
                     safetensors_name = safetensors_name.replace("CHAMMI-75_train", "CHAMMI-75_guidance")
                     if safetensors_name in self.guided_crops.data_paths:
@@ -144,12 +145,34 @@ class IterableImageArchive(IterableDataset):
             self.default_transform = v2.RandomResizedCrop(size=self.guided_crops.crop_size, antialias=True)  
         
         worker_data = self.call_splitting_fns(self.image_paths)    
+
+        # Apply sampling if configured
+        if self.config.samples_per_epoch is not None:
+            worker_data = list(worker_data)  # Materialize the data
+            
+            if self.config.shuffle_each_epoch:
+                # Use seed + epoch for deterministic but different shuffles each epoch
+                rng = random.Random(self.config.seed) if self.config.seed else random
+                rng.shuffle(worker_data)
+            
+            # Sample the desired number
+            worker_data = worker_data[:self.config.samples_per_epoch]
+
         samples = iter(self.return_sample(worker_data))
 
 
         return samples
     
     def __len__(self):
+
+        # If sampling is enabled, return the sample size
+        if self.config.samples_per_epoch is not None:
+            # Adjust for multi-process if needed
+            if self.config.num_procs > 1:
+                return self.config.samples_per_epoch // self.config.num_procs
+            return self.config.samples_per_epoch
+
+
         if not self.image_paths:
             if isinstance(self.config.data_path, list) and len(self.config.data_path) == 2:
                 # Handle two data paths

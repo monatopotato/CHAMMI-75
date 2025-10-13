@@ -149,12 +149,28 @@ class IterableImageArchive(IterableDataset):
         # Apply sampling if configured
         if self.config.samples_per_epoch is not None:
             worker_data = list(worker_data)  # Materialize the data
+
+            worker_info = torch.utils.data.get_worker_info()
+            if worker_info is not None:
+                # Adjust for multi-process if needed
+                total_workers = worker_info.num_workers * self.config.num_procs
+                samples_this_worker = self.config.samples_per_epoch // total_workers
+            else:
+                samples_this_worker = self.config.samples_per_epoch // self.config.num_procs if self.config.num_procs > 1 else self.config.samples_per_epoch
             
             if self.config.shuffle_each_epoch:
                 # Use seed + epoch for deterministic but different shuffles each epoch
                 rng = random.Random(self.config.seed) if self.config.seed else random
                 rng.shuffle(worker_data)
             
+            actual_size = len(worker_data)
+
+            if samples_this_worker > actual_size:
+                print(f"Warning: Requested {samples_this_worker} samples but only {actual_size} available. Sampling with replacement.")
+                worker_data = [random.choice(worker_data) for _ in range(samples_this_worker)]
+            else:
+                worker_data = worker_data[:samples_this_worker]
+
             # Sample the desired number
             worker_data = worker_data[:self.config.samples_per_epoch]
 

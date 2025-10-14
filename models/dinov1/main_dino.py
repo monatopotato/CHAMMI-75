@@ -180,7 +180,8 @@ def train_dino(args):
                 proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
                 transform=transform,
                 dataset_size=args.dataset_size,
-                small_list_path = args.small_list_path,
+                samples_per_epoch=512000,
+                shuffle_each_epoch=True,
                 seed=42
         )
     
@@ -400,7 +401,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 
         # EMA update for the teacher
         with torch.no_grad():
-            m = momentum_schedule[it]  # momentum parameter
+            m =  momentum_schedule[it]  # momentum parameter, keeping momentum fixed to 0.996, 0.996
             for param_q, param_k in zip(student.module.parameters(), teacher_without_ddp.parameters()):
                 param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 
@@ -617,7 +618,7 @@ class TensorAugmentationDINO(object):
             ]
         )
         self.common_normalization = transforms.Compose([
-            v2.ToImageTensor(),
+            v2.ToTensor(),
             SaturationNoiseInjector(low=200, high=255),
             PerImageNormalize()
         ])

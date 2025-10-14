@@ -89,7 +89,7 @@ def main():
             f"--num_workers {config['HPA_NUM_WORKERS']} "
             f"--output_folder {config['HPA_FEATURES_PATH']}"
         )
-        # run_command(hpa_cmd, cwd=hpa_dir)
+        run_command(hpa_cmd, cwd=hpa_dir)
 
         train_cmd = (
             f"python train_classification.py -f {config['HPA_FEATURES_PATH']} -cc locations -uc challenge_cats"
@@ -112,7 +112,7 @@ def main():
             f"--output_folder {config['NEURON_FEATURES_PATH']} "
             f"--num_workers {config['NEURON_NUM_WORKERS']}"
         )
-        # run_command(neuron_cmd, cwd=neuron_dir)
+        run_command(neuron_cmd, cwd=neuron_dir)
 
         classifier_cmd = (
             f"python classifier.py --embedding_path {config['NEURON_FEATURES_PATH']}"
@@ -133,7 +133,7 @@ def main():
     if config.get('JUMPCP', False):
         jumpcp_dir = os.path.join(BENCHMARKS_DIR, 'jumpcp1')
         feature_conversion_cmd = (
-            f"python feature_extraction.py f --root_dir {config['JUMPCP_IMAGES_PATH']} --model_path {config['MODEL_PATH']} --feat_dir {config['JUMPCP_FEATURES_PATH']} --model {config['MODEL_TYPE']}"
+            f"python feature_extraction.py --root_dir {config['JUMPCP_IMAGES_PATH']} --model_path {config['MODEL_PATH']} --feat_dir {config['JUMPCP_FEATURES_PATH']} --model {config['MODEL_TYPE']} --batch_size {config['JUMPCP_BATCH_SIZE']}"
         )
         feature_aggregation_normalization_cmd = (
             f"python well_level_aggregation.py --features_path {config['JUMPCP_FEATURES_PATH']}/{config['MODEL_TYPE']} --model {config['MODEL_TYPE']}"
@@ -141,7 +141,7 @@ def main():
         benchmark_cmd = (
             f"python run_evaluation.py --model {config['MODEL_TYPE']}"
         )
-        run_command(classifier_cmd, cwd=jumpcp_dir)
+        run_command(feature_conversion_cmd, cwd=jumpcp_dir)
         run_command(feature_aggregation_normalization_cmd, cwd=jumpcp_dir)
         run_command(benchmark_cmd, cwd=jumpcp_dir)
 

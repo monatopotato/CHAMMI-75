@@ -4,7 +4,7 @@ import torch
 import cv2
 import numpy as np
 from tqdm import tqdm
-from torch import nn
+from torch import device, nn
 import polars as pl
 from torch.utils.data import Dataset
 from torchvision.io import decode_image
@@ -143,7 +143,6 @@ def extract_features(dataloader: torch.utils.data.DataLoader, model_instance: ob
             images, rows = batch_data
             batch_size = images.shape[0]
             num_channels = images.shape[1]
-            
             features = model_instance(images)
             
             all_features.append(features)
@@ -228,6 +227,7 @@ def main():
 # Initialize model on accelerator device
     model_instance = get_model(model_name=args.model, device=accelerator.device, model_path=args.model_path, model_size=args.model_size)
     model, transform = model_instance.get_model()
+    model = model.to(accelerator.device)  # Change this line
     
     if args.model == "channelvit":
         model_instance.set_dataset("mini-HPA", args.model_path)
@@ -270,4 +270,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    sys.exit(0)

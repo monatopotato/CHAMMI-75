@@ -1,15 +1,15 @@
 # Master Config file to change variables around
 MODEL_TYPE: vit   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
-MODEL_PATH: /scr/vidit/Foundation_Models/iclr_model_weights/DINO_CHAMMI-75_LARGE_DATASET/checkpoint.pth
+MODEL_PATH: /scr/vidit/fixed_iter_models/DINO_BOC_75ds_small_changed_lr/checkpoint.pth
 MODEL_SIZE: small
 NUM_GPUS: 2
 MODEL_MODE: null
 
 # CHAMMI Benchmark
-CHAMMI: False  # Enable CHAMMI benchmark
+CHAMMI: True  # Enable CHAMMI benchmark
 CHAMMI_IMAGES_PATH: /scr/vidit/Foundation_Models/CHAMMI
 CHAMMI_FEATURES_PATH: /scr/vidit/chammi_features
-CHAMMI_SCORE_PATH: /scr/vidit/CHAMMI_scores/CHAMMI_Test
+CHAMMI_SCORE_PATH: /scr/vidit/CHAMMI_scores/DINO_BOC_75ds_small_changed_lr
 CHAMMI_BATCH_SIZE: 64
 
 # HPA Benchmark

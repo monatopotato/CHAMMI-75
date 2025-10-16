@@ -114,7 +114,6 @@ def get_save_features(feature_dir, root_dir, model_check, batch_size):
 
         
         feature_path  = f'{feature_dir}/{dataset_name}/pretrained_vit_features.npy'
-        os.makedirs(feature_path, exist_ok=True)
         np.save(feature_path, all_feat)
         torch.cuda.empty_cache() # new line
         

@@ -1,5 +1,9 @@
 # CHAMMI-75: pre-training multi-channel models with heterogeneous microscopy images
 
+## Accessing the dataset
+
+Please go to AWS and download the dataset from an S3 bucket
+
 
 ## Commands to run DINOv1
 

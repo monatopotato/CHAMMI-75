@@ -1,1 +1,3 @@
 CUDA_VISIBLE_DEVICES=0,1,2,3,6,7 python -m torch.distributed.launch --nproc_per_node=6 main_dino.py --arch vit_small --data_path /scr/data/chammi_train.zip --output_dir /scr/vidit/fixed_iter_models/DINO_BOC_3ds --lr 0.00005 --guided_cropping False --batch_size_per_gpu 256
+
+python -m torch.distributed.launch --nproc_per_node=8 main_dino.py --arch vit_small --data_path /scr/data/CHAMMI-75_small.zip --output_dir /scr/vidit/fixed_iter_models/DINO_BOC_75dsmall_more_iter_rerun --lr 0.00005  --guided_cropping True --guided_crops_path /scr/data/CHAMMI-75_guidance --batch_size_per_gpu 256

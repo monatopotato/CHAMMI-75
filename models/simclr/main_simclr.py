@@ -38,7 +38,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from optimizer import get_optimizer
 from diffusers.optimization import get_scheduler
 import glob
-
+import wandb
+import model_utils as utils
 
 class PerImageNormalize(nn.Module):
     def __init__(self, eps=1e-7):
@@ -148,7 +149,6 @@ def find_latest_checkpoint(output_dir):
     epoch_numbers = []
     for checkpoint_file in checkpoint_files:
         try:
-            # Extract epoch number from filename like "checkpoint_epoch_5.pt"
             filename = os.path.basename(checkpoint_file)
             epoch_num = int(filename.split('_')[-1].split('.')[0])
             epoch_numbers.append((epoch_num, checkpoint_file))
@@ -376,6 +376,9 @@ def train_simclr(args):
     # Check for existing checkpoints and handle them
     should_resume, checkpoint_path = check_and_handle_existing_checkpoints(args.output_dir, args)
 
+    if utils.is_main_process():
+        wandb.init(project="Morphem-Foundation-Model", config=vars(args), name=f"{args.output_dir.split('/')[-1]}")
+
     config = dataset_config.DatasetConfig(
                 args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
                 split_fns=[get_proc_split, randomize, split_for_workers],
@@ -383,8 +386,7 @@ def train_simclr(args):
                 proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
                 transform=transforms.Compose([SaturationNoiseInjector(low=200, high=255), PerImageNormalize(), v2.Resize((224,224))]),
                 dataset_size=args.dataset_size,
-                seed=42,
-                use_fp32=True
+                seed=42
         )
     
     # If guided cropping is enabled, we add the guided crops path and size to the config
@@ -455,6 +457,8 @@ def train_simclr(args):
     # Calculate total steps before training starts
     total_steps_per_epoch = len(data_loader) // args.gradient_accumulation_steps
     total_steps = total_steps_per_epoch * args.epochs
+    if utils.is_main_process():
+        wandb.watch(ddp_model, log="all")
 
     # Setup the learning rate warmup
    # Training loop
@@ -501,6 +505,12 @@ def train_simclr(args):
                         print(f"Epoch {epoch + 1}, Step {global_step}/{total_steps}: "
                             f"Loss = {loss.item():.4f}, LR = {current_lr:.6f}, "
                             f"ETA Epoch: {eta_epoch/60:.1f}min")
+                        if wandb.run is not None:
+                            wandb.log({
+                                "loss": loss.item(),
+                                "lr": current_lr,
+                                "global_step": global_step,
+                            }, step=global_step)
             else:
                 # Gradient accumulation for memory-limited setups
                 loss = loss / args.gradient_accumulation_steps
@@ -522,7 +532,13 @@ def train_simclr(args):
                                 print(f"Epoch {epoch + 1}, Step {global_step}/{total_steps}: "
                                     f"Loss = {loss.item() * args.gradient_accumulation_steps:.4f}, "
                                     f"LR = {current_lr:.6f}, ETA Epoch: {eta_epoch/60:.1f}min")
-            
+                                if wandb.run is not None:
+                                    wandb.log({
+                                        "loss": loss.item() * args.gradient_accumulation_steps,
+                                        "lr": current_lr,
+                                        "global_step": global_step,
+                                    }, step=global_step)
+
             epoch_loss += loss.item() * args.gradient_accumulation_steps
             num_batches += 1
 
@@ -545,7 +561,7 @@ def train_simclr(args):
             print("-" * 50)
         
         # Save checkpoint
-        if (epoch + 1) % 5 == 0:  # Save every 5 epochs
+        if (epoch + 1) % 10 == 0:  # Save every 10 epochs
             checkpoint_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch + 1}.pt")
             os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
             torch.save({

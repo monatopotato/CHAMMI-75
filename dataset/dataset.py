@@ -103,6 +103,7 @@ class IterableImageArchive(IterableDataset):
                 if self.config.guided_crops_path and self.guided_crops.crop_size != (-1, -1):
                     safetensors_name = file_path.filename[:-4] + ".safetensors"
                     safetensors_name = safetensors_name.replace("CHAMMI-75_train", "CHAMMI-75_guidance")
+                    safetensors_name = os.path.join(self.config.guided_crops_path, safetensors_name.split('/', maxsplit=1)[1])
                     if safetensors_name in self.guided_crops.data_paths:
                         image_tensor = self.guided_crops(image_tensor, safetensors_name)
                     else:
@@ -145,50 +146,11 @@ class IterableImageArchive(IterableDataset):
             self.default_transform = v2.RandomResizedCrop(size=self.guided_crops.crop_size, antialias=True)  
         
         worker_data = self.call_splitting_fns(self.image_paths)    
-
-        # Apply sampling if configured
-        if self.config.samples_per_epoch is not None:
-            worker_data = list(worker_data)  # Materialize the data
-
-            worker_info = torch.utils.data.get_worker_info()
-            if worker_info is not None:
-                # Adjust for multi-process if needed
-                total_workers = worker_info.num_workers * self.config.num_procs
-                samples_this_worker = self.config.samples_per_epoch // total_workers
-            else:
-                samples_this_worker = self.config.samples_per_epoch // self.config.num_procs if self.config.num_procs > 1 else self.config.samples_per_epoch
-            
-            if self.config.shuffle_each_epoch:
-                # Use seed + epoch for deterministic but different shuffles each epoch
-                rng = random.Random(self.config.seed) if self.config.seed else random
-                rng.shuffle(worker_data)
-            
-            actual_size = len(worker_data)
-
-            if samples_this_worker > actual_size:
-                print(f"Warning: Requested {samples_this_worker} samples but only {actual_size} available. Sampling with replacement.")
-                worker_data = [random.choice(worker_data) for _ in range(samples_this_worker)]
-            else:
-                worker_data = worker_data[:samples_this_worker]
-
-            # Sample the desired number
-            worker_data = worker_data[:self.config.samples_per_epoch]
-
         samples = iter(self.return_sample(worker_data))
-
-
         return samples
-    
+
+
     def __len__(self):
-
-        # If sampling is enabled, return the sample size
-        if self.config.samples_per_epoch is not None:
-            # Adjust for multi-process if needed
-            if self.config.num_procs > 1:
-                return self.config.samples_per_epoch // self.config.num_procs
-            return self.config.samples_per_epoch
-
-
         if not self.image_paths:
             if isinstance(self.config.data_path, list) and len(self.config.data_path) == 2:
                 # Handle two data paths

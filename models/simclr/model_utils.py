@@ -3,6 +3,7 @@ import warnings
 import torch
 from torch import Tensor
 from torch.nn import init
+import torch.distributed as dist
 
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
@@ -41,6 +42,21 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         tensor.clamp_(min=a, max=b)
         return tensor
 
+
+def is_dist_avail_and_initialized():
+    if not dist.is_available():
+        return False
+    if not dist.is_initialized():
+        return False
+    return True
+
+def get_rank():
+    if not is_dist_avail_and_initialized():
+        return 0
+    return dist.get_rank()
+
+def is_main_process():
+    return get_rank() == 0
 
 def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
     # type: (Tensor, float, float, float, float) -> Tensor

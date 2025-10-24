@@ -37,6 +37,7 @@ from dataset import dataset_config
 from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
+import wandb
 
 import torch
 import torchvision.transforms.v2.functional as func
@@ -136,7 +137,7 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/path/to/imagenet/train/', type=str,
         help='Please specify path to the ImageNet training data.')
     parser.add_argument('--output_dir', default=".", type=str, help='Path to save logs and checkpoints.')
-    parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
+    parser.add_argument('--saveckp_freq', default=10, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=7, type=int, help='Number of data loading workers per GPU.')
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
@@ -147,13 +148,10 @@ def get_args_parser():
     # New Added parameters
     parser.add_argument('--guided_crops_path', default=None, type=str,)
     parser.add_argument('--dataset_size', default="small", type=str, choices=["small", "large"],)
-    parser.add_argument('--multiscale', default=False, type=utils.bool_flag,)
     parser.add_argument('--guided_cropping', default=False, type=utils.bool_flag,)
     parser.add_argument('--guided_crops_size', default=(256, 256), type=int, nargs=2,
         help="""Size of the guided crops. Only used if --guided_cropping is True.
         Should be a tuple of two integers (height, width).""")
-    parser.add_argument('--small_list_path', default=None, type=str,
-        help="""Path to the small list of images for the small dataset. Only used if --dataset_size is 'small'.""")
     return parser
 
 
@@ -163,6 +161,9 @@ def train_dino(args):
     print("git:\n  {}\n".format(utils.get_sha()))
     print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
+
+    if utils.is_main_process():
+        wandb.init(project="Morphem-Foundation-Model", config=vars(args), name=f"{args.output_dir.split('/')[-1]}")
 
     # ============ preparing data ... ============
 
@@ -180,7 +181,7 @@ def train_dino(args):
                 proc = torch.distributed.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
                 transform=transform,
                 dataset_size=args.dataset_size,
-                samples_per_epoch=512000,
+                samples_per_epoch=1280000,
                 shuffle_each_epoch=True,
                 seed=42
         )
@@ -196,12 +197,13 @@ def train_dino(args):
                 guided_crops_size = args.guided_crops_size,
                 transform=transform,
                 dataset_size=args.dataset_size,
-                small_list_path = args.small_list_path,
+                samples_per_epoch=1280000,
+                shuffle_each_epoch=True,
                 seed=42
                 )
 
     dataset = IterableImageArchive(config)
-    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=2, worker_init_fn=dataset.worker_init_fn, drop_last=True)
+    data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size_per_gpu, num_workers=4, worker_init_fn=dataset.worker_init_fn, drop_last=True, prefetch_factor=8)
     
     print(f"Data loaded: there are {len(data_loader)} images.")
 
@@ -262,6 +264,8 @@ def train_dino(args):
         p.requires_grad = False
     print(f"Student and Teacher are built: they are both {args.arch} network.")
 
+    if utils.is_main_process():
+        wandb.watch(student)
 
     # ============ preparing loss ... ============
     dino_loss = DINOLoss(
@@ -410,6 +414,14 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(loss=loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
+
+        if utils.is_main_process() and it % 100 == 0:
+            wandb.log({
+                "loss": loss.item(),
+                "lr": optimizer.param_groups[0]["lr"],
+                "wd": optimizer.param_groups[0]["weight_decay"],
+                }, step=it)
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

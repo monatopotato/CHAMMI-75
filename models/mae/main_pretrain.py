@@ -26,23 +26,15 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
 import sys
+sys.path.append("../../")
 from timm.optim import create_optimizer_v2
 from timm.optim.optim_factory import param_groups_weight_decay
-<<<<<<< HEAD
-<<<<<<< HEAD:mae/main_pretrain.py
-sys.path.append('/scr/vidit/FoundationModels/FoundationModels')
-=======
-sys.path.append('../../')
->>>>>>> origin/main:models/mae/main_pretrain.py
-=======
-sys.path.append('../')
->>>>>>> origin/main
 from dataset.dataset import IterableImageArchive
 from dataset import dataset_config
 from dataset.dataset_functions import randomize, split_for_workers, get_proc_split
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
-sys.path.append('/scr/vidit/FoundationModels/FoundationModels/mae/utils')
+import wandb
 
 import timm
 #assert timm.__version__ == "0.3.2"  # version check
@@ -237,24 +229,14 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
-<<<<<<< HEAD
-=======
-    parser.add_argument('--use_fp32', action='store_true', default=True,
-                        help='Use float32 for images')
-    parser.add_argument('--guided_cropping', action='store_true',
-                        help='Use guided cropping for training. If true, guided_crops_path and guided_crops_size must be set.')
-    parser.add_argument('--guided_crops_size', default=(256, 256), type=int, nargs=2,
-                        help='Size of the guided crops to use for training. If None, no guided cropping is used.')
+
+    # New Added parameters
     parser.add_argument('--guided_crops_path', default=None, type=str,)
-    parser.add_argument('--multiscale', action='store_true',
-                        help='Enable multiscale training.')
-    parser.add_argument('--save_freq', default=20, type=int,
-                        help='frequency of saving checkpoints (in epochs)')
-    parser.add_argument('--keep_checkpoints', default=5, type=int,
-                        help='number of recent checkpoints to keep (0 to keep all)')
-    parser.add_argument('--dataset_size', default='full', type=str,
-                        help='Size of the dataset to use. Options: full, medium, small, tiny')
->>>>>>> origin/main
+    parser.add_argument('--dataset_size', default="small", type=str, choices=["small", "large"],)
+    parser.add_argument('--guided_cropping', default=False, type=bool)
+    parser.add_argument('--guided_crops_size', default=(256, 256), type=int, nargs=2,
+        help="""Size of the guided crops. Only used if --guided_cropping is True.
+        Should be a tuple of two integers (height, width).""")
 
     return parser
 
@@ -274,39 +256,16 @@ def main(args):
 
     cudnn.benchmark = True
 
-<<<<<<< HEAD
-    config = dataset_config.DatasetConfig(
-            args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
-            split_fns=[get_proc_split, randomize, split_for_workers],
-            num_procs = misc.get_world_size(), # maybe works? brother needs to check!
-            proc = misc.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
-            #guided_crops_path = "/scr/vidit/content_filters.zip",
-            #guided_crops_size = (256, 256),
-            transform=TensorAugmentationDINO(),
-            seed=seed
-            )
-=======
-    # Handle data_path: if single path provided, keep as string; if multiple paths, keep as list
-    if len(args.data_path) == 1:
-        args.data_path = args.data_path[0]  # Convert single-item list to string for backward compatibility
-    elif len(args.data_path) == 2:
-        # Keep as list for dual-path support
-        pass
-    else:
-        raise ValueError("data_path must be either 1 or 2 paths, got {}".format(len(args.data_path)))
-
     if args.guided_cropping:
         config = dataset_config.DatasetConfig(
                 args.data_path, # args.data_path, /scr/data/CHAMMIv2m.zip
                 split_fns=[get_proc_split, randomize, split_for_workers],
                 num_procs = misc.get_world_size(), # maybe works? brother needs to check!
                 proc = misc.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
-                use_fp32 = args.use_fp32,  # Use float32 for images
                 guided_crops_path = args.guided_crops_path,
                 guided_crops_size = args.guided_crops_size,
                 transform=TensorAugmentationMAE(),
-                dataset_size=args.dataset_size,
-                seed=seed,
+                seed=seed
                 )
     else:
         config = dataset_config.DatasetConfig(
@@ -314,17 +273,14 @@ def main(args):
                 split_fns=[get_proc_split, randomize, split_for_workers],
                 num_procs = misc.get_world_size(), # maybe works? brother needs to check!
                 proc = misc.get_rank(), # This is the global rank generally? Print out later? Look at multinode?
-                use_fp32 = args.use_fp32,  # Use float32 for images
                 transform=TensorAugmentationMAE(),
-                dataset_size=args.dataset_size,
-                seed=seed,
+                seed=seed
                 )
->>>>>>> origin/main
     dataset_train = IterableImageArchive(config)
 
 
     world_size = misc.get_world_size()
-    rank       = misc.get_rank()
+    rank = misc.get_rank()
     if world_size > 1:
         sampler_train = torch.utils.data.DistributedSampler(
             dataset_train,
@@ -337,13 +293,8 @@ def main(args):
 
     print("Sampler_train = %s" % str(sampler_train))
     if misc.is_main_process():
-        wandb.init(project="Morphem-Foundation-Model", config=vars(args), name="Mae_small_75ds_Baseline")
+        wandb.init(project="Morphem-Foundation-Model", config=vars(args), name=args.output_dir.split("/")[-1])
 
-   # if global_rank == 0 and args.log_dir is not None:
-        #os.makedirs(args.log_dir, exist_ok=True)
-        #log_writer = SummaryWriter(log_dir=args.log_dir)
-   #else:
-   #     log_writer = None
     data_loader_train = torch.utils.data.DataLoader(
         dataset = dataset_train,
         batch_size=args.batch_size,
@@ -394,7 +345,7 @@ def main(args):
             optimizer, device, epoch, loss_scaler, 
             args=args
         )
-        if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
+        if args.output_dir and (epoch % 10 == 0 or epoch + 1 == args.epochs):
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)

@@ -174,8 +174,12 @@ cython_debug/
 
 
 # Wandb Stuff
-/dinov1/wandb/
-/mae/wandb/
+models/dinov1/wandb/
+models/mae/wandb/
+models/simclr/wandb/
+models/channel_vit_dino/wandb/
+models/channel_vit_mae/wandb/
+models/channel_vit_simclr/wandb/
 /dataset/__pycache__/
 /dinov1/log.txt
 /mae/*.sh

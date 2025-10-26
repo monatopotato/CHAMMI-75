@@ -2,3 +2,4 @@
 # pixi environments
 .pixi
 *.egg-info
+spam_score.py

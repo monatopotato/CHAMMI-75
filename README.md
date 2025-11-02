@@ -10,11 +10,17 @@ Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 
 <sup>6</sup>Department of Biological Engineering, Massachusetts Institute of Technology  
 <sup>7</sup>Spatial Technology Platform, Broad Institute of Harvard and MIT  
 
+## Preprint Out!
+
+Here is link for the preprint: [Link]
+
 ## Accessing the dataset
 
-Please go to AWS and download the dataset from an S3 bucket
+Please go to AWS and download the dataset from an S3 bucket:
 
-# Metadata Schema
+Details, and steps
+
+## Metadata Schema
 
 The metadata comes in six major groups: **experiment**, **biology**, **imaging**, **microscopy**, **geometry**, and **storage** information. Each record in the metadata file points to a single channel file. The metadata is designed to facilitate grouping of channel files according to the categories described before. For each category, we have several metadata columns described below. 
 
@@ -22,7 +28,7 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 
 ---
 
-## Experiment
+### Experiment
 
 | Field | Description |
 |-------|-------------|
@@ -32,7 +38,7 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 | `experiment.reagent` | Identifier or name of the treatment or reagent used to treat the cells. In many cases, this is a gene name, a compound name, or a protein name, while in other cases it may reflect other experimental intervention (e.g., temperature). |
 | `experiment.control` | Whether the image comes from a control well or not, and what type of control they may be, for example, positive or negative control. If not a control, use the string `"no"`. |
 
-## Biology
+### Biology
 
 | Field | Description |
 |-------|-------------|
@@ -40,7 +46,7 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 | `biology.cell_line` | Name of the cell line. Many cell lines have well known names (such as HeLa), other cell lines are from primary patients and have anonymized codes, and others from genetically modified organisms. |
 | `biology.cell_type` | The functional type of cell, regardless of the cell line. Examples include neurons, red blood cells, cancer cells, pancreatic cells, etc. |
 
-## Imaging
+### Imaging
 
 | Field | Description |
 |-------|-------------|
@@ -49,7 +55,7 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 | `imaging.channel` | Numeric value of the channel according to the panel. This value is one-based. |
 | `imaging.channel_type` | Biological compartment of the cell that is visible in the channel. This is a list of standardized values that include: nucleus, cell body, bright-field, etc. |
 
-## Microscopy
+### Microscopy
 
 | Field | Description |
 |-------|-------------|
@@ -57,7 +63,7 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 | `microscopy.magnification` | Numeric value of the magnification used to acquire the image. |
 | `microscopy.fov` | Field of view, well site, or microscope position in the well when the channel was captured. |
 
-## Geometry
+### Geometry
 
 | Field | Description |
 |-------|-------------|
@@ -68,18 +74,21 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 | `geometry.z_slice` | Number of the z-plane for this channel. It is a numerical value. |
 | `geometry.timepoint` | Number of the frame in the timelapse sequence, if applicable. |
 
-## Storage
+### Storage
 
 | Field | Description |
 |-------|-------------|
 | `storage.filename` | Name of the zip file containing this channel. |
-## Commands to run DINOv1
+
+## SSL pre-training Comamnds
+
+### Commands to run DINOv1
 
 ```bash
  python -m torch.distributed.launch --nproc_per_node=2 main_dino.py --arch vit_small --data_path /scr/data/75ds_train/CHAMMI-75_train.zip --output_dir /scr/vidit/Models/test_3 --lr 0.00005 --batch_size_per_gpu 224 --guided_crops_path /scr/data/75ds_large_segmentations/CHAMMI-75_guidance.zip --multiscale True --dataset_size large --guided_cropping True
 ```
 
-## Commands to run MAE
+### Commands to run MAE
 
 ```bash
 python -m torch.distributed.launch --nproc_per_node=8 main_pretrain.py --data_path /scr/data/CHAMMIv2s_train.zip --output_dir /scr/vidit/Models/MAE_75ds_baseline --batch_size 1024

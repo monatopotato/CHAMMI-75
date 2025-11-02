@@ -10,6 +10,8 @@ Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 
 <sup>6</sup>Department of Biological Engineering, Massachusetts Institute of Technology  
 <sup>7</sup>Spatial Technology Platform, Broad Institute of Harvard and MIT  
 
+Official Github repository of CHAMMI-75: first of its kind 2.8 million multi-channel image dataset of microscopy imaging pooled from 75 different sources. The aim is to accelerate investigation of generalizable channel-agnostic foundation models in the field of microscopy.
+
 ## Preprint Out!
 
 Here is link for the preprint: [Link]

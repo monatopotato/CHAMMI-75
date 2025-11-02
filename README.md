@@ -80,6 +80,10 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 |-------|-------------|
 | `storage.filename` | Name of the zip file containing this channel. |
 
+## Running Benchmarks
+
+Please see our tutorials in aws-tutorials folder to download and use our benchmarks present in the benchmarks folder!
+
 ## SSL pre-training Comamnds
 
 ### Commands to run DINOv1
@@ -93,3 +97,4 @@ The metadata comes in six major groups: **experiment**, **biology**, **imaging**
 ```bash
 python -m torch.distributed.launch --nproc_per_node=8 main_pretrain.py --data_path /scr/data/CHAMMIv2s_train.zip --output_dir /scr/vidit/Models/MAE_75ds_baseline --batch_size 1024
 ```
+

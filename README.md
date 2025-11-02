@@ -1,5 +1,16 @@
 # CHAMMI-75: pre-training multi-channel models with heterogeneous microscopy images
 
+Vidit Agrawal<sup>1</sup>, John Peters<sup>1</sup>, Tyler Thompson<sup>1</sup>, Mohammed Sanian<sup>2</sup>, Chau Pham<sup>3</sup>, Nikita Moshkov<sup>4</sup>, Arshad Kazi<sup>1</sup>, Aditya Pillai<sup>1</sup>, Jack Freeman<sup>1</sup>, Byunguk Kang<sup>5</sup>, Samouil L. Farhi<sup>6</sup>, Ernest Fraenkel<sup>5</sup>, Ron Stewart<sup>7</sup>, Lassi Paavolainen<sup>8</sup>, Bryan Plummer<sup>3</sup>, Juan Caicedo<sup>1</sup>
+
+<sup>1</sup>Morgridge Institute for Research, 
+<sup>2</sup>University of Wisconsin-Madison  
+<sup>3</sup>Institute for Molecular Medicine Finland (FIMM), University of Helsinki  
+<sup>4</sup>Boston University  
+<sup>5</sup>Institute of Computational Biology, Helmholtz Munich  
+<sup>6</sup>Department of Biological Engineering, Massachusetts Institute of Technology  
+<sup>7</sup>Spatial Technology Platform, Broad Institute of Harvard and MIT  
+<sup>8</sup>Morgridge Institute for Research
+
 ## Accessing the dataset
 
 Please go to AWS and download the dataset from an S3 bucket

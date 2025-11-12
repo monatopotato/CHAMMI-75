@@ -1,0 +1,1 @@
+# This script is intended to download the CHAMMI-75 small dataset from a public S3 bucket and save it locally.

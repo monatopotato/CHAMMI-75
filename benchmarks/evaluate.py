@@ -7,37 +7,6 @@ import yaml
 import subprocess
 import os
 
-# Function to write dinov2_idr17.yaml from benchmark_config.yaml
-def write_dinov2_config(config, output_path):
-    dinov2_config = {
-        'out_folder': config['IDR_DATA_FOLDER'] + '/study_replication',
-        'cache': config['IDR_CACHE'],
-        'study': config['IDR_DATA_FOLDER'] + '/images',
-        'metadata': config['IDR_DATA_FOLDER'] + '/metadata/idr0017_meta.csv',
-        'feature_extraction': {
-            'feature_agg': True,
-            'model_mode': config.get('MODEL_MODE', None),
-            'model_path': config.get('MODEL_PATH', None),
-            'model': config.get('MODEL_TYPE', 'dinov2'),
-            'subcell_channel_map': {
-                'nucleus': 1,
-                'protein': 2,
-                'er': None,
-                'mt': None
-            },
-            'crop': config.get('IDR_CROP', 100),
-            'resize': config.get('IDR_RESIZE', 224),
-            'resources': {
-                'num_gpus': config.get('NUM_GPUS', 1),
-                'batch_size': config.get('IDR_BATCH_SIZE', 2048),
-                'num_workers': config.get('IDR_NUM_WORKERS', 8),
-                'threads': config.get('IDR_THREADS', 16)
-            }
-        }
-    }
-    with open(output_path, 'w') as f:
-        yaml.dump(dinov2_config, f, default_flow_style=False)
-
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'benchmark_config.yaml')
 BENCHMARKS_DIR = os.path.dirname(__file__)
 
@@ -121,13 +90,12 @@ def main():
 
     # IDR-17 Benchmark
     if config.get('IDR-17', False):
-        idr_config_path = os.path.join(BENCHMARKS_DIR, 'idr0017_benchmark/configs/idr0017/idr17_temp.yaml')
-        write_dinov2_config(config, idr_config_path)
-        workflow_dir = os.path.join(BENCHMARKS_DIR, 'idr0017_benchmark/workflow')
-        snakemake_cmd = (
-            f"snakemake --configfile ../configs/idr0017/idr17_temp.yaml --jobs {config['NUM_GPUS']} --cores {config['NUM_GPUS']*config['IDR_NUM_WORKERS']}"
+        idr17_dir = os.path.join(BENCHMARKS_DIR, 'idr0017_benchmark')
+
+        idr_cmd = (
+            f"python feature_extraction.py --model_path {config['MODEL_PATH']} --model_type {config['MODEL_TYPE']} --batch_size 2048 --images_folder {config['IDR_DATA_FOLDER']} --output_folder {config['IDR_FEATURES_PATH']} --num_workers {config['IDR_NUM_WORKERS']}"
         )
-        run_command(snakemake_cmd, cwd=workflow_dir)
+        run_command(idr_cmd, cwd=idr17_dir)
 
     # JUMPCP Features
     if config.get('JUMPCP', False):

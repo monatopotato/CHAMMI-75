@@ -1,5 +1,5 @@
 # Master Config file to change variables around
-MODEL_TYPE: vit   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
+MODEL_TYPE: dinov2   # Model Types available - vit, mae, dinov2, dinov3, openphenom, subcell, chanvit_simclr in some cases
 MODEL_PATH: /scr/vidit/DINO_CHAMMI-75_LARGE_DATASET/checkpoint.pth
 MODEL_SIZE: small
 NUM_GPUS: 1
@@ -30,8 +30,8 @@ JUMPCP_NUM_WORKERS: 8
 #IDR-17 Benchmark
 IDR-17: True # Enable/disable IDR-17 benchmark
 # Paths and directories used for all rules
-IDR_DATA_FOLDER: /scr/data/idr0017
-IDR_FEATURES_PATH: /scr/vidit/idr17_features/dino
+IDR_DATA_FOLDER: /scr/data/CHAMMI-75/CHAMMI-75_test/idr0017
+IDR_FEATURES_PATH: /scr/vidit/idr17_features/dinov2
 IDR_NUM_WORKERS: 8
 
 # Neuron Features Benchmark

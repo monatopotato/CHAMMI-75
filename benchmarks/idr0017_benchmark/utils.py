@@ -35,7 +35,7 @@ def fetch_embeddings_from_metadata(embedding_path: str, metadata: pl.DataFrame, 
             image_id = row['imaging.multi_channel_id']
             image_name_1 = row['storage.filename']
             image_name_2 = image_name_1.replace("DAPI", "Cy3")
-            plate_name = f"{study_name}-{plate_id}-converted_features.safetensors"
+            plate_name = f"{plate_id}_features.safetensors"
             plate_emb_path = os.path.join(embedding_path, plate_name)
             plate_emb_dict = safe_open(plate_emb_path, framework = "pt")
             try:
@@ -57,7 +57,7 @@ def fetch_embeddings_from_metadata(embedding_path: str, metadata: pl.DataFrame, 
         for idx, row in enumerate(metadata.iter_rows(named=True)):
             plate_id = row['storage.zip']
             image_id = row['imaging.multi_channel_id']
-            plate_name = f"{study_name}-{plate_id}-converted_features.safetensors"
+            plate_name = f"{plate_id}_features.safetensors"
             plate_emb_path = os.path.join(embedding_path, plate_name)
             plate_emb_dict = safe_open(plate_emb_path, framework = "pt")
             try:
@@ -78,7 +78,7 @@ def fetch_dinov2_embeddings_from_metadata(embedding_path: str, metadata: pl.Data
         image_id = row['imaging.multi_channel_id']
         image_name_1 = row['storage.filename']
         image_name_2 = image_name_1.replace("DAPI", "Cy3")
-        plate_name = f"{study_name}-{plate_id}-converted_features.safetensors"
+        plate_name = f"{plate_id}_features.safetensors"
         plate_emb_path = os.path.join(embedding_path, plate_name)
         plate_emb_dict = safe_open(plate_emb_path, framework = "pt")
         

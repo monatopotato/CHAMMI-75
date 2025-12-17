@@ -99,7 +99,6 @@ accelerate launch --multi_gpu --num_processes=8 accelerate_hpa_features.py \
   --image_folder /path/to/mini-hpa \
   --batch_size 128 \
   --num_workers 8 \
-  --config_path ./config/subcell_config.yaml \
   --output_folder /path/to/features_output
 
 # Step 2: Evaluate on all categories
@@ -116,23 +115,3 @@ python train_classification.py \
 ```
 
 ---
-
-## Troubleshooting
-
-### Features Extraction Hangs
-If the feature extraction script hangs after saving features:
-- Press `Ctrl+C` to interrupt the script
-- Or manually kill the processes using system tools (e.g., `pkill -f accelerate_hpa_features.py`)
-
-### Out of Memory Errors
-- Reduce `--batch_size` to a smaller value (e.g., 64 or 32)
-- Reduce `--num_processes` if you have limited GPU memory
-- Reduce `--num_workers` to free up system RAM
-
-### Features Not Found During Evaluation
-- Ensure the `-f` path in `train_classification.py` exactly matches the `--output_folder` path from feature extraction
-- Verify that features were successfully saved in the output folder before running evaluation
-
-### Slow Data Loading
-- Increase `--num_workers` if your CPU usage is low (check with `top` or system monitor)
-- Ensure `--image_folder` is on fast storage (SSD preferred over network storage)

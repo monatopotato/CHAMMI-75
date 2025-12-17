@@ -33,11 +33,13 @@ accelerate launch --multi_gpu --num_processes=7 extraction.py \
 ```bash
 python classifier.py \
   --embedding_path /scr/vidit/neural_features/neuron_feature_extraction/DINOv2/
+  --embed_dim 384
 ```
 
 ### Flag Documentation
 
 - `--embedding_path`: Path to the directory containing extracted features (must match `--output_folder` from feature extraction step)
+- `--embed_dim`: Number of dimensions of the output given by the model being tested. Used to decide bounds for the PCA which help in evaluating the 14 channel study
 
 ---
 

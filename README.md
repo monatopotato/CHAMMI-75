@@ -18,25 +18,19 @@ Here is link for the preprint: [Link]
 
 ## Accessing the dataset
 
-Please go to AWS and download the dataset from an S3 bucket:
+Please go to AWS and download the dataset from an S3 bucket: https://registry.opendata.aws/chammi/
 
-Details, and steps
+Command that will download the entire CHAMMI-75 project using aws cli (No AWS account required)
+
+```bash
+aws s3 ls --no-sign-request s3://chammi-data/
+```
+
+For more details and steps to download specific parts, go to [AWS-Download Instructions] (./aws-tutorials)
+
+We thank the AWS Open Data Sponsorship for hosting out dataset
 
 ## Running Benchmarks
 
-Please see our tutorials in aws-tutorials folder to download and use our benchmarks present in the benchmarks folder!
-
-## SSL pre-training Comamnds
-
-### Commands to run DINOv1
-
-```bash
- python -m torch.distributed.launch --nproc_per_node=2 main_dino.py --arch vit_small --data_path /scr/data/75ds_train/CHAMMI-75_train.zip --output_dir /scr/vidit/Models/test_3 --lr 0.00005 --batch_size_per_gpu 224 --guided_crops_path /scr/data/75ds_large_segmentations/CHAMMI-75_guidance.zip --multiscale True --dataset_size large --guided_cropping True
-```
-
-### Commands to run MAE
-
-```bash
-python -m torch.distributed.launch --nproc_per_node=8 main_pretrain.py --data_path /scr/data/CHAMMIv2s_train.zip --output_dir /scr/vidit/Models/MAE_75ds_baseline --batch_size 1024
-```
+Please see our benchmarks folders use our benchmarks!
 

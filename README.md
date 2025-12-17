@@ -26,11 +26,11 @@ Command that will download the entire CHAMMI-75 project using aws cli (No AWS ac
 aws s3 ls --no-sign-request s3://chammi-data/
 ```
 
-For more details and steps to download specific parts, go to [AWS-Download Instructions] (./aws-tutorials)
+For more details and steps to download specific parts, go to [AWS-Download Instructions](./aws-tutorials)
 
 We thank the AWS Open Data Sponsorship for hosting out dataset
 
 ## Running Benchmarks
 
-Please see our benchmarks folders use our benchmarks!
+Please see our [Benchmarks folders](./benchmarks) use our benchmarks!
 

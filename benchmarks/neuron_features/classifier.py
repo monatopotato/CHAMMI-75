@@ -23,7 +23,7 @@ def save_with_avg(df, avg_stats, path):
     df_out = pd.concat([df_out, avg_row.to_frame().T])
     df_out.to_csv(path)
 
-def run_classifier(embedding_path):
+def run_classifier(embedding_path, embed_dim):
     with open(os.path.join(embedding_path, "train_embeddings.pkl"), 'rb') as f:
         train_real_embeddings = pickle.load(f)
     with open(os.path.join(embedding_path, "test_embeddings.pkl"), 'rb') as f:
@@ -51,24 +51,18 @@ def run_classifier(embedding_path):
 
     pca_embeddings_train = None
     pca_embeddings_test = None
-    # print(train_embeddings.shape, "SHAPE OF TRAIN EMBED")
-    # for chan_num in range(14):
-    #     channel_embeddings = train_embeddings[:, chan_num*384:(chan_num+1)*384]
-    #     pca = PCA(n_components=20)
-    #     pca_model = pca.fit(channel_embeddings)
-    #     train_channel_pca = pca_model.transform(channel_embeddings)
-    #     test_channel_pca = pca_model.transform(test_embeddings[:, chan_num*384:(chan_num+1)*384])
-    #     if pca_embeddings_train is None:
-    #         pca_embeddings_train = train_channel_pca
-    #         pca_embeddings_test = test_channel_pca
-    #     else:
-    #         pca_embeddings_train = np.concatenate((pca_embeddings_train, train_channel_pca), axis=1)
-    #         pca_embeddings_test = np.concatenate((pca_embeddings_test, test_channel_pca), axis=1)
-    pca = PCA(n_components=20)
-    pca_model = pca.fit(train_embeddings)
-
-    pca_embeddings_train = pca_model.transform(train_embeddings)
-    pca_embeddings_test = pca_model.transform(test_embeddings)
+    for chan_num in range(14):
+        channel_embeddings = train_embeddings[:, chan_num*embed_dim:(chan_num+1)*embed_dim]
+        pca = PCA(n_components=20)
+        pca_model = pca.fit(channel_embeddings)
+        train_channel_pca = pca_model.transform(channel_embeddings)
+        test_channel_pca = pca_model.transform(test_embeddings[:, chan_num*embed_dim:(chan_num+1)*embed_dim])
+        if pca_embeddings_train is None:
+            pca_embeddings_train = train_channel_pca
+            pca_embeddings_test = test_channel_pca
+        else:
+            pca_embeddings_train = np.concatenate((pca_embeddings_train, train_channel_pca), axis=1)
+            pca_embeddings_test = np.concatenate((pca_embeddings_test, test_channel_pca), axis=1)
 
     train_labels = [gene[0] for gene in train_genes]
     test_labels = [gene[0] for gene in test_genes]
@@ -179,5 +173,6 @@ def run_classifier(embedding_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run neuron feature classifier.")
     parser.add_argument("--embedding_path", type=str, required=True, help="Path to embedding directory")
+    parser.add_argument("--embed_dim", type=int, default=384, help="Dimension of embeddings")
     args = parser.parse_args()
-    run_classifier(args.embedding_path)
+    run_classifier(args.embedding_path, args.embed_dim)

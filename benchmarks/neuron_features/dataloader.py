@@ -54,7 +54,7 @@ class CellDataset(Dataset):
     # dataframe containing mask, image, metadata 
     def load_image_dataframe(self):
         # load image_dataframe
-        im_df = pd.read_pickle(os.path.join(self.datadir, 'cropped_images_combined.pkl'))
+        im_df = pd.read_pickle(os.path.join(self.datadir, 'CELLPHIE.pkl'))
         if self.mask_flag: # if mask_flag is True; then mask image
             im_df['image'] = im_df['image']*im_df['soma_mask']
         else:
@@ -85,16 +85,6 @@ class CellDataset(Dataset):
             return {'image_tensor': image_tensor, 'UMI': sample['UMI'], 'Gene': sample['Gene'],
                    'Time':sample['Time'], 'Media': sample['Media'], 'Sample': sample['Sample']}
         return sample
-
-
-def test_CellDataset():
-    print('testing dataloader.py')
-    dataset = CellDataset(datadir = '/scr/vidit/neural_features/input_data', mode='test', transform=ToTensorNormalize(), mask_flag = False)
-    print(len(dataset))
-    sample = dataset[0]
-    print(sample['image_tensor'].shape)
-    print(sample['Gene'])
-    print(sample['UMI'])
 
 
 if __name__ == "__main__":

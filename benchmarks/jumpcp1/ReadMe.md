@@ -19,43 +19,21 @@ python feature_extraction.py
   \ --batch_size 128
 ```
 
-###
- Flag Documentation
+### Flag Documentation
 
--
- 
-`--model`
-: Type of model architecture to use for feature extraction (e.g., `vit` for Vision Transformer). Specifies which model backbone will generate the feature embeddings.
--
- 
-`--model_path`
-: Path to the pretrained model checkpoint/weights file. This should be a `.pth` file containing the model weights. Example: `/scr/vidit/DINO_CHAMMI-75_LARGE_DATASET/checkpoint.pth`
+- `--model`: Type of model architecture to use for feature extraction (e.g., `vit` for Vision Transformer). Specifies which model backbone will generate the feature embeddings.
+- `--model_path`: Path to the pretrained model checkpoint/weights file. This should be a `.pth` file containing the model weights. Example: `/scr/vidit/DINO_CHAMMI-75_LARGE_DATASET/checkpoint.pth`
+- `--root_dir`: Path to the root directory of the Jump-CP dataset. This directory should contain all the image files and metadata for the Jump-CP compound screening dataset.
+- `--feat_dir`: Output directory where extracted features will be saved. The script will create feature files (typically in `.npy` or `.pt` format) in this location. Create this directory beforehand if it doesn't exist.
+- `--batch_size`: Number of images to process per batch during feature extraction (typical values: 64, 128, 256). Adjust based on available GPU memory—reduce if you encounter out-of-memory errors.
 
--
- 
-`--root_dir`
-: Path to the root directory of the Jump-CP dataset. This directory should contain all the image files and metadata for the Jump-CP compound screening dataset.
--
- 
-`--feat_dir`
-: Output directory where extracted features will be saved. The script will create feature files (typically in `.npy` or `.pt` format) in this location. Create this directory beforehand if it doesn't exist.
--
- 
-`--batch_size`
-: Number of images to process per batch during feature extraction (typical values: 64, 128, 256). Adjust based on available GPU memory—reduce if you encounter out-of-memory errors.
-###
- Output
+### Output
 
-The script generates feature files containing embeddings extracted from the model. These features are saved in 
-`--feat_dir`
- and used in subsequent aggregation and evaluation steps.
+The script generates feature files containing embeddings extracted from the model. These features are saved in `--feat_dir` and used in subsequent aggregation and evaluation steps.
 ---
+## Well-Level Profile Aggregation
 
-##
- Well-Level Profile Aggregation
-
-###
- Command
+### Command
 
 ```
 bash
@@ -73,59 +51,33 @@ python well_level_aggregation.py
 
 ```
 
-###
- Flag Documentation
+### Flag Documentation
 
--
- 
-`--model`
-: Model variant identifier for aggregation purposes (e.g., 
-`dinov1`
- for DINO v1, 
-`vit`
-, etc.). This identifies which model's features are being aggregated and should match the model used in feature extraction.
--
- 
-`--profiles`
-: Path to the directory containing extracted features from the previous feature extraction step. This should match the 
-`--feat_dir` used in `feature_extraction.py`
-. The script will read feature files from this directory.
--
- 
-`--output`
-: Directory path where aggregated well-level profiles will be saved. This directory will contain the aggregated feature representations at the well level (combining features from multiple images per well). Create this directory beforehand if it doesn't exist.
-###
- Purpose
+- `--model`: Model variant identifier for aggregation purposes (e.g., `dinov1` for DINO v1, `vit`, etc.). This identifies which model's features are being aggregated and should match the model used in feature extraction.
+- `--profiles`: Path to the directory containing extracted features from the previous feature extraction step. This should match the 
+`--feat_dir` used in `feature_extraction.py`. The script will read feature files from this directory.
+- `--output`: Directory path where aggregated well-level profiles will be saved. This directory will contain the aggregated feature representations at the well level (combining features from multiple images per well). Create this directory beforehand if it doesn't exist.
+
+### Purpose
 
 Well-level aggregation combines per-image features into representative profiles for each well in the plate. This aggregation step pools information across multiple images within a well to create robust cellular phenotype representations.
 ---
 
-##
- Evaluation on Jump-CP Benchmark
+## Evaluation on Jump-CP Benchmark
 
-###
- Command
+### Command
 
 ```
 bash
 python run_evaluation.py \ --model dinov1 \ --output path_to_output
 ```
 
-###
- Flag Documentation
+### Flag Documentation
 
--
- 
-`--model`
-: Model variant identifier being evaluated (e.g., 
-`dinov1`
-). Should match the model identifier used in the aggregation step. This is used for tracking and reporting results.
--
- 
-`--output`
-: Path to the directory containing the aggregated well-level profiles from the previous aggregation step. The evaluation script will read the profiles from this location and compute benchmark metrics.
-###
- Purpose
+- `--model` : Model variant identifier being evaluated (e.g., `dinov1`). Should match the model identifier used in the aggregation step. This is used for tracking and reporting results.
+- `--output`: Path to the directory containing the aggregated well-level profiles from the previous aggregation step. The evaluation script will read the profiles from this location and compute benchmark metrics.
+
+### Purpose
 
 This script evaluates the quality of the aggregated profiles using Jump-CP benchmark metrics. It computes various performance measures that assess how well the model's features capture biologically meaningful information from the compound screening data.
 

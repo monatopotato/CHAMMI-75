@@ -12,7 +12,6 @@ import os
 
 
 def configure_dataset(root_dir, plate_name, transform=None):
-    print(root_dir)
     root_dir = f'{root_dir}/{plate_name}'
     metadata_path = 'sc-metadata.csv'
     dataset = sc_dataset.SingleCellDataset(root=root_dir, metadata_path=metadata_path, transform=transform)

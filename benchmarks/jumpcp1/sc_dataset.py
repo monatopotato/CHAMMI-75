@@ -126,7 +126,11 @@ class SingleCellDataset(VisionDataset):
         Returns:
             tuple: (sample, target) where target is class_index of the target class.
         """
-        path, target = os.path.join(self.root, self.samples.iloc[index]["Image_Name"]), 0
+        image_name = self.samples.iloc[index]["Image_Name"]
+        # Remove leading plate directory if present
+        if image_name.startswith(os.path.basename(self.root)):
+            image_name = image_name[len(os.path.basename(self.root))+1:]
+        path = os.path.join(self.root, image_name)
         sample = self.loader(path)
 
         if self.transform is not None:

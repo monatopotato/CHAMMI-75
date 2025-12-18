@@ -37,18 +37,10 @@ The script generates feature files containing embeddings extracted from the mode
 
 ```
 bash
-
 python well_level_aggregation.py 
-\
-
-  --model dinov1 
-\
-
-  --profiles /scr/vidit/jump_results/ 
-\
-
-  --output path_to_output
-
+ \ --model dinov1 
+ \ --profiles /scr/vidit/jump_results/ 
+ \ --output path_to_output
 ```
 
 ### Flag Documentation

@@ -4,7 +4,7 @@ Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 
 
 <sup>1</sup>Morgridge Institute for Research  
 <sup>2</sup>University of Wisconsin-Madison  
-<sup>3</sup>Institute for Molecular Medicine Finland (FIMM), University of Helsinki  
+<sup>3</sup>Institute for Molecular Medicine Finland (FIMM)  
 <sup>4</sup>University of Helsinki  
 <sup>5</sup>Boston University  
 <sup>6</sup>Institute of Computational Biology, Helmholtz Munich  

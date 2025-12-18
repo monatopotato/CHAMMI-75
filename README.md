@@ -2,10 +2,10 @@
 
 Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 2</sup>, Mohammed Sanian<sup>3,4</sup>, Chau Pham<sup>5</sup>, Nikita Moshkov<sup>6</sup>, Arshad Kazi<sup>1, 2</sup>, Aditya Pillai<sup>1, 2</sup>, Jack Freeman<sup>1</sup>, Byunguk Kang<sup>7, 8</sup>, Samouil L. Farhi<sup>8</sup>, Ernest Fraenkel<sup>7</sup>, Ron Stewart<sup>1</sup>, Lassi Paavolainen<sup>3,4</sup>, Bryan Plummer<sup>5</sup>, Juan Caicedo<sup>1, 2</sup>
 
-<sup>1</sup>Morgridge Institute for Research 
+<sup>1</sup>Morgridge Institute for Research  
 <sup>2</sup>University of Wisconsin-Madison  
 <sup>3</sup>Institute for Molecular Medicine Finland (FIMM), University of Helsinki  
-<sup>4</sup>University of Helsinki
+<sup>4</sup>University of Helsinki  
 <sup>5</sup>Boston University  
 <sup>6</sup>Institute of Computational Biology, Helmholtz Munich  
 <sup>7</sup>Massachusetts Institute of Technology  

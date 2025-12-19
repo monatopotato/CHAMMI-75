@@ -12,7 +12,6 @@ import pandas as pd
 from urllib.parse import quote
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Download CHAMMI-75 dataset images")
     parser.add_argument(
@@ -30,7 +29,7 @@ def parse_args():
     parser.add_argument(
         "--guidance",
         action="store_true",
-        help="If set, also download guidance files (.safetensor format)"
+        help="If set, also download guidance files (.safetensors format)"
     )
     return parser.parse_args()
 
@@ -52,9 +51,11 @@ def download_file(url, local_path, timeout=30, allow_404=False, max_retries=5):
             if allow_404 and "404" in str(e):
                 return True, f"{local_path}: skipped (not found)"
             
+            # Don't retry on last attempt
             if attempt == max_retries - 1:
                 return False, f"{local_path}: {e}"
             
+            # Exponential backoff with jitter
             wait_time = (2 ** attempt) + random.uniform(0, 1)
             time.sleep(wait_time)
 
@@ -73,7 +74,7 @@ def get_missing_guidance(clean_paths, download_folder):
     """Check which safetensor files are missing from the download folder."""
     missing = []
     for path in clean_paths:
-        safetensor_path = os.path.splitext(path)[0] + ".safetensor"
+        safetensor_path = os.path.splitext(path)[0] + ".safetensors"
         local_path = os.path.join(download_folder, safetensor_path)
         if not os.path.exists(local_path):
             missing.append(path)  # Return original path so download_guidance can convert it
@@ -92,13 +93,13 @@ def download_image(path, base_url, download_folder):
 
 def download_guidance(path, base_url, download_folder):
     """Download guidance file - convert .png path to .safetensor."""
-    safetensor_path = os.path.splitext(path)[0] + ".safetensor"
+    # Replace .png extension with .safetensor
+    safetensor_path = os.path.splitext(path)[0] + ".safetensors"
     # Pre-encode the path for S3
     encoded_path = quote(safetensor_path, safe='/')
     url = f"{base_url}/{encoded_path}"
     local_path = os.path.join(download_folder, safetensor_path)
     return download_file(url, local_path, allow_404=True)
-
 
 
 def main():
@@ -140,12 +141,17 @@ def main():
     
     # Test first with a sample URL
     sample_path = clean_paths[0]
-    sample_url = f"{BASE_URL_TRAIN}/{sample_path}"
+    sample_encoded_path = quote(sample_path, safe='/')
+    sample_url = f"{BASE_URL_TRAIN}/{sample_encoded_path}"
     response = requests.get(sample_url)
     
     if response.status_code != 200:
-        print("URL structure is wrong - check the path")
+        print(f"URL structure is wrong - check the path")
+        print(f"Sample URL: {sample_url}")
+        print(f"Status code: {response.status_code}")
         return
+    
+    print(f"Sample URL test passed: {response.status_code}")
     
     # Download images to CHAMMI-75_small folder
     # First check which images are missing

@@ -143,7 +143,7 @@ class HuggingFaceCHAMMI75(Model):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(device).eval()
         print(f"✓ Model loaded on {device}")
-        self.feature_file = "pretrained_vit_features.npy"
+        self.feature_file = "pretrained_huggingface_chammi75_features.npy"
         self.device = device
         self.transform = torchvision.transforms.Compose(
             [
@@ -174,12 +174,11 @@ class HuggingFaceCHAMMI75(Model):
             images = images.to(self.device)
             for c in range(images.shape[1]):
                 single_channel = images[:, c, :, :].unsqueeze(1)
-
-                output = self.model(single_channel)
-                feat_temp = output.last_hidden_state[:, 0].cpu().detach().numpy()
+                output = self.model.forward_features(single_channel)
+                feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
 
                 batch_feat.append(feat_temp)
-        return np.concatenate(batch_feat, axis=1) 
+        return np.concatenate(batch_feat, axis=1)
     
 
 

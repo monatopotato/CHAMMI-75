@@ -111,7 +111,7 @@ def get_save_features(feature_dir, root_dir, model_check, batch_size):
         elif all_feat.ndim == 2:
             all_feat = all_feat.squeeze()
 
-        feature_path = f"{feature_dir}/{dataset_name}/pretrained_vit_features.npy"
+        feature_path = f"{feature_dir}/{dataset_name}/pretrained_{model_check}_features.npy"
         np.save(feature_path, all_feat)
         torch.cuda.empty_cache()  # new line
 

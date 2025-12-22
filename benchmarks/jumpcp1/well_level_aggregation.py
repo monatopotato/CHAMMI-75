@@ -24,7 +24,7 @@ def aggregate_profiles(plate_filename, profiles_folder, metadata_folder, model, 
 
     assert len(features) == len(plate_metadata)
     profile_data = pd.concat((plate_metadata, features), axis = 1)
-    profile_data.rename(columns = dict(zip([i for i in range(feature_size[model])], feature_columns)), inplace = True, errors='raise')
+    profile_data.rename(columns = dict(zip([i for i in range(feature_size)], feature_columns)), inplace = True, errors='raise')
     profile_data = profile_data.groupby(["batch", "plate", "well"])[feature_columns].mean().reset_index()
     plate = plate_filename.split('.')[0]
     os.makedirs(f'{output_folder}/{model}/{plate}', exist_ok = True)
@@ -57,14 +57,17 @@ if __name__ == "__main__":
     parser.add_argument('--profiles', help = 'Path to folder with .npy files of plate profiles', required=False)
     parser.add_argument('--model', help = 'With which model features were obtained', required=True)
     parser.add_argument('--output_folder', help = 'Path to folder to save aggregated profiles', required=False, default='./features/aggregated/')
+    parser.add_argument('--feature_size', help = 'Size of feature vector for the model', required=False, type=int, default=0)
     args = parser.parse_args()
     os.makedirs(f'./features/aggregated/{args.model}', exist_ok = True)
     feature_size = {'cp-cnn':672, 'vit':1920, 'dinov2':1920, 'dinov3':1920, 'openphenom':1920, 'subcell':4096}
-    feature_columns = ['emb_' + str(i) for i in range(feature_size[args.model])]
+    if args.feature_size == 0:
+        args.feature_size = feature_size[args.model]
+    feature_columns = ['emb_' + str(i) for i in range(args.feature_size)]
     plates = ['BR00117010', 'BR00117011', 'BR00117012', 'BR00117013', 'BR00117024', 'BR00117025', 'BR00117026'] # CP-JUMP1 compound plat
     
     if args.model != 'cp-cnn':
         for plate in tqdm(plates):
-            aggregate_profiles(plate, args.profiles, './features/metadata', args.model, feature_size, feature_columns, args.output_folder)
+            aggregate_profiles(plate, args.profiles, './features/metadata', args.model, args.feature_size, feature_columns, args.output_folder)
 
     normalize_features(plates, args.model, feature_columns, args.output_folder)

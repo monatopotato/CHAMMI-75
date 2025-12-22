@@ -7,7 +7,7 @@ import argparse
 import utils
 import itertools
 
-def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
+def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr, output_folder):
     reference_col = "Metadata_reference_index"
     profiles_activity = assign_reference_index(
         profiles,
@@ -40,22 +40,22 @@ def run_phenotypic_activity(profiles, model, null_size, batch_size, fdr):
     activity_map = map.mean_average_precision(
         activity_ap, pos_sameby, null_size=null_size, threshold=fdr, seed=0
     )
-    os.makedirs(f'./results/{model}/', exist_ok=True)
+    os.makedirs(f'{output_folder}/{model}/', exist_ok=True)
     activity_map["-log10(p-value)"] = -activity_map["corrected_p_value"].apply(np.log10)    
-    activity_map.to_csv(f"results/{model}/phenotypic_activity_all_map.csv")
+    activity_map.to_csv(f"{output_folder}/{model}/phenotypic_activity_all_map.csv")
     active_ratio = activity_map.below_corrected_p.mean()
     mean_map = activity_map[activity_map.below_corrected_p]['mean_average_precision'].sum() / len(activity_map)
-    activity_map.to_csv(f'results/{model}/phenotypic_activity_map.csv')
+    activity_map.to_csv(f'{output_folder}/{model}/phenotypic_activity_map.csv')
     pd.DataFrame(columns = ['Active fraction', 'mean mAP (all - non-active = 0)', 'mean mAP (all)', 'mean mAP (active only)'], 
                  data = [[active_ratio, mean_map, activity_map['mean_average_precision'].mean(), 
                          activity_map[activity_map.below_corrected_p]['mean_average_precision'].mean()]]).to_csv(
-                     f'results/{model}/phenotypic_activity_result.csv',
+                     f'{output_folder}/{model}/phenotypic_activity_result.csv',
                 index=False)
     print(f"Phenotypic activity: fraction: {active_ratio}, mean mAP {mean_map}")
     return activity_map
 
 
-def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_size, fdr):
+def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_size, fdr, output_folder):
     multi_label_col = "Metadata_matching_target"
     active_compounds = activity_map.query("below_corrected_p")["Metadata_broad_sample"]
     consensus_profiles = profiles.query("Metadata_broad_sample in @active_compounds")
@@ -125,16 +125,16 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
 
     pd.DataFrame(columns = ['Consistent fraction', 'Consistent fraction true', 'mean mAP for consistent passed targets', 'mean mAP for passed targets', 'mean mAP all; targets non-consistent and non-present = 0 '], 
                 data = [[consistent_ratio, consistent_true_fraction, consistent_map, agg_result['mean_average_precision'].mean(), overall_map]]).to_csv(
-                    f'results/{model}/phenotypic_consistency_result.csv',
+                    f'{output_folder}/{model}/phenotypic_consistency_result.csv',
                 index=False)
 
-    agg_result.to_csv(f'results/{model}/phenotypic_consistency_map.csv')
-
+    agg_result.to_csv(f'{output_folder}/{model}/phenotypic_consistency_map.csv')
 
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--feat_dir", type=str, default="./features/aggregated/", help="The directory that contains the aggregated features", required=False)
     parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (mae, openphenom, dinov2 or vit)", required=True)
+    parser.add_argument("--output_folder", type=str, default="./features/aggregated/", help="Output folder for aggregated features", required=False)
     parser.add_argument("--postfix", type=str, default="group_spherized_0.001", help="Postfix for aggregated features name", required=False)
     parser.add_argument("--fdr", default = 0.05, type=float, help="P-value threshold", required=False)
     parser.add_argument("--batch_size", default = 100000, type=int, help = "Batch size for copairs", required=False)
@@ -147,5 +147,5 @@ if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
     profiles = utils.load_aggregated_profiles(args.feat_dir, args.postfix, args.model)
-    activity_map = run_phenotypic_activity(profiles, args.model, args.null_size_pa, args.batch_size, args.fdr)
-    run_phenotypic_consistency(profiles, activity_map, args.model, args.null_size_pc, args.batch_size, args.fdr)
+    activity_map = run_phenotypic_activity(profiles, args.model, args.null_size_pa, args.batch_size, args.fdr, args.output_folder)
+    run_phenotypic_consistency(profiles, activity_map, args.model, args.null_size_pc, args.batch_size, args.fdr, args.output_folder)

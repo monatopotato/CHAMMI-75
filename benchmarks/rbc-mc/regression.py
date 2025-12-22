@@ -8,6 +8,9 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import os
+import pickle
+import csv
+from datetime import datetime
 
 # Set style for better visualizations
 sns.set_style("whitegrid")
@@ -246,7 +249,47 @@ def plot_confusion_matrices(
     plt.show()
 
 
-## Step 5: Main Analysis Pipeline
+## Step 5: Results Export Functions
+
+
+def save_results_to_csv(results, output_folder):
+    """
+    Save cross-dataset classification results to a CSV file
+    
+    Parameters:
+    -----------
+    results : dict
+        Results dictionary from run_cross_dataset_classification
+    output_folder : str
+        Path to folder where CSV will be saved
+    """
+    exp1_accuracy = results["experiment_1"]["accuracy"]
+    exp2_accuracy = results["experiment_2"]["accuracy"]
+    overall_accuracy = (exp1_accuracy + exp2_accuracy) / 2
+    
+    # Create output filename
+    csv_filename = (
+        "classification_results.csv"
+        if not output_folder
+        else os.path.join(output_folder, "classification_results.csv")
+    )
+    
+    # Write results to CSV
+    with open(csv_filename, "w", newline="") as csvfile:
+        fieldnames = ["Experiment_1_Accuracy", "Experiment_2_Accuracy", "Overall_Accuracy"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        writer.writeheader()
+        writer.writerow({
+            "Experiment_1_Accuracy": f"{exp1_accuracy:.4f}",
+            "Experiment_2_Accuracy": f"{exp2_accuracy:.4f}",
+            "Overall_Accuracy": f"{overall_accuracy:.4f}"
+        })
+    
+    print(f"  ✓ Results saved to: {csv_filename}")
+
+
+## Step 6: Main Analysis Pipeline
 
 
 def run_cross_dataset_classification(
@@ -362,8 +405,6 @@ def run_cross_dataset_classification(
     }
 
 
-import pickle
-
 if __name__ == "__main__":
     import argparse
 
@@ -380,3 +421,7 @@ if __name__ == "__main__":
         embeddings = pickle.load(f)
 
     results = run_cross_dataset_classification(embeddings)
+    
+    # Save results to CSV
+    print("\n[Step 6/6] Saving results to CSV...")
+    save_results_to_csv(results, args.output_folder)

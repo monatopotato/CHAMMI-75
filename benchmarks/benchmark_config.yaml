@@ -20,10 +20,10 @@ HPA_BATCH_SIZE: 16
 HPA_NUM_WORKERS: 8
 
 #JUMP-CP Benchmark
-JUMPCP: False  # Enable JUMP-CP1 benchmark
-JUMPCP_IMAGES_PATH: /scr/data/75ds_test/jumpcp1compounds
-JUMPCP_FEATURES_PATH: /scr/data/75ds_test/jumpcp1compounds
-JUMPCP_SCORE_PATH: /scr/data/75ds_test/jumpcp1compounds
+JUMPCP: True  # Enable JUMP-CP1 benchmark
+JUMPCP_IMAGES_PATH: /scr/data/CHAMMI-75_test
+JUMPCP_FEATURES_PATH: /scr/vidit/jump_results
+JUMPCP_SCORE_PATH: /scr/vidit/temp_jump
 JUMPCP_BATCH_SIZE: 16
 JUMPCP_NUM_WORKERS: 8
 

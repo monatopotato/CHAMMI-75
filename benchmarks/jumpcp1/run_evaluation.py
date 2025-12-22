@@ -132,7 +132,7 @@ def run_phenotypic_consistency(profiles, activity_map, model, null_size, batch_s
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--feat_dir", type=str, default="./features/aggregated/", help="The directory that contains the aggregated features", required=False)
+    parser.add_argument("--feat_dir", type=str, default="./features/aggregated/", help="The directory that contains the aggregated features", required=True)
     parser.add_argument("--model", type=str, help="The type of model that is being trained and evaluated (mae, openphenom, dinov2 or vit)", required=True)
     parser.add_argument("--output_folder", type=str, default="./features/aggregated/", help="Output folder for aggregated features", required=False)
     parser.add_argument("--postfix", type=str, default="group_spherized_0.001", help="Postfix for aggregated features name", required=False)

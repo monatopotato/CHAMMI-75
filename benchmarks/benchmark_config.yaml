@@ -28,14 +28,16 @@ JUMPCP_BATCH_SIZE: 16
 JUMPCP_NUM_WORKERS: 8
 
 #IDR-17 Benchmark
-IDR-17: False # Enable/disable IDR-17 benchmark
+IDR-17: True # Enable/disable IDR-17 benchmark
 # Paths and directories used for all rules
-IDR_DATA_FOLDER: /scr/data/idr0017
-IDR_FEATURES_PATH: /scr/vidit/idr17_features/idrcell
+IDR_DATA_FOLDER: /scr/data/CHAMMI-75/CHAMMI-75_test/idr0017
+IDR_FEATURES_PATH: /scr/jpeters/c75_testing/idr17
+IDR_BENCHMARK_SAVE_DIR: /scr/jpeters/c75_testing/idr17
+IDR_METADATA_PATH: /scr/jpeters/c75_testing/datasets/idr0017_mini/idr0017_meta.csv
 IDR_NUM_WORKERS: 8
 
 # Neuron Features Benchmark
-NEURON_FEATURES: True  # Enable Neuron Features benchmark
+NEURON_FEATURES: False  # Enable Neuron Features benchmark
 NEURON_IMAGES_PATH: /scr/data/CHAMMI-75_test/CELLPHIE
 NEURON_FEATURES_PATH: /scr/vidit/neural_features/DINO
 NEURON_SCORE_PATH: /scr/vidit/neural_features/DINO

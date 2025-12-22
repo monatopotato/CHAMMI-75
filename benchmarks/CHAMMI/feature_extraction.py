@@ -64,11 +64,6 @@ def get_save_features(feature_dir, root_dir, model_check, batch_size):
     else:
         dataset_names = ["Allen", "CP", "HPA"]
 
-    if not os.path.exists(args.feat_dir):
-        os.makedirs(args.feat_dir, exist_ok=True)
-        for dataset_name in dataset_names:
-            os.makedirs(f"{feature_dir}/{dataset_name}", exist_ok=True)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_instance = get_model(
@@ -111,7 +106,11 @@ def get_save_features(feature_dir, root_dir, model_check, batch_size):
         elif all_feat.ndim == 2:
             all_feat = all_feat.squeeze()
 
-        feature_path = f"{feature_dir}/{dataset_name}/pretrained_vit_features.npy"
+        feat_dir = os.path.join(feature_dir, dataset_name)
+        feature_path = os.path.join(feat_dir, "pretrained_vit_features.npy")
+        if not os.path.exists(feat_dir):
+            os.makedirs(feat_dir, exist_ok=True)
+            
         np.save(feature_path, all_feat)
         torch.cuda.empty_cache()  # new line
 

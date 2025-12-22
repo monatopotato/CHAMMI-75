@@ -27,7 +27,7 @@ def main():
 
     # CHAMMI
     if config.get("CHAMMI", False):
-        morphem_dir = os.path.join(BENCHMARKS_DIR, "morphem")
+        morphem_dir = os.path.join(BENCHMARKS_DIR, "CHAMMI")
         chammi_cmd = (
             f"python feature_extraction.py "
             f"--root_dir {config['CHAMMI_IMAGES_PATH']} "
@@ -41,7 +41,7 @@ def main():
 
         # Run scoring from benchmarks folder (not morphem)
         benchmark_cmd = (
-            f'python -c "from morphem.benchmark import run_benchmark; '
+            f'python -c "from CHAMMI.benchmark import run_benchmark; '
             f"run_benchmark('{config['CHAMMI_IMAGES_PATH']}', '{config['CHAMMI_SCORE_PATH']}', "
             f"'{config['CHAMMI_FEATURES_PATH']}', f'pretrained_{config['MODEL_TYPE']}_features.npy')\""
         )
@@ -49,7 +49,7 @@ def main():
 
     # HPA
     if config.get("HPA", False):
-        hpa_dir = os.path.join(BENCHMARKS_DIR, "hpa")
+        hpa_dir = os.path.join(BENCHMARKS_DIR, "HPAv23")
         hpa_cmd = (
             f"accelerate launch --multi_gpu --num_processes={config['NUM_GPUS']} accelerate_hpa_features.py "
             f"--model {config['MODEL_TYPE']} "
@@ -68,26 +68,26 @@ def main():
         run_command(train_cmd, cwd=hpa_dir)
 
     # Neuron Features
-    if config.get("NEURON_FEATURES", False):
-        neuron_dir = os.path.join(BENCHMARKS_DIR, "neuron_features")
+    if config.get("CellPHIE", False):
+        neuron_dir = os.path.join(BENCHMARKS_DIR, "CellPHIE")
         neuron_cmd = (
             f"accelerate launch --multi_gpu --num_processes={config['NUM_GPUS']} extraction.py "
             f"--model {config['MODEL_TYPE']} "
-            f"--image_folder {config['NEURON_IMAGES_PATH']} "
+            f"--image_folder {config['CellPHIE_IMAGES_PATH']} "
             f"--model_path {config['MODEL_PATH']} "
-            f"--output_folder {config['NEURON_FEATURES_PATH']} "
-            f"--num_workers {config['NEURON_NUM_WORKERS']}"
+            f"--output_folder {config['CellPHIE_FEATURES_PATH']} "
+            f"--num_workers {config['CellPHIE_NUM_WORKERS']}"
         )
         run_command(neuron_cmd, cwd=neuron_dir)
 
         classifier_cmd = (
-            f"python classifier.py --embedding_path {config['NEURON_FEATURES_PATH']}"
+            f"python classifier.py --embedding_path {config['CellPHIE_FEATURES_PATH']} --embed_dim {config['CellPHIE_EMBED_DIM']}"
         )
         run_command(classifier_cmd, cwd=neuron_dir)
 
     # IDR-17 Benchmark
     if config.get("IDR-17", False):
-        idr17_dir = os.path.join(BENCHMARKS_DIR, "idr0017_benchmark")
+        idr17_dir = os.path.join(BENCHMARKS_DIR, "IDR0017")
 
         idr_cmd = f"python feature_extraction.py --model_path {config['MODEL_PATH']} --model_type {config['MODEL_TYPE']} --batch_size 2048 --images_folder {config['IDR_DATA_FOLDER']} --output_folder {config['IDR_FEATURES_PATH']} --num_workers {config['IDR_NUM_WORKERS']}"
         run_command(idr_cmd, cwd=idr17_dir)
@@ -97,16 +97,16 @@ def main():
 
     # JUMPCP Features
     if config.get("JUMPCP", False):
-        jumpcp_dir = os.path.join(BENCHMARKS_DIR, "jumpcp1")
+        jumpcp_dir = os.path.join(BENCHMARKS_DIR, "JUMPCP")
         feature_conversion_cmd = f"python feature_extraction.py --root_dir {config['JUMPCP_IMAGES_PATH']} --model_path {config['MODEL_PATH']} --feat_dir {config['JUMPCP_FEATURES_PATH']} --model {config['MODEL_TYPE']} --batch_size {config['JUMPCP_BATCH_SIZE']}"
         feature_aggregation_normalization_cmd = f"python well_level_aggregation.py --profiles {config['JUMPCP_FEATURES_PATH']} --model {config['MODEL_TYPE']} --output_folder {config['JUMPCP_SCORE_PATH']}"
         benchmark_cmd = f"python run_evaluation.py --feat_dir {config['JUMPCP_SCORE_PATH']} --model {config['MODEL_TYPE']} --output_folder {config['JUMPCP_SCORE_PATH']}"
-        #run_command(feature_conversion_cmd, cwd=jumpcp_dir)
+        run_command(feature_conversion_cmd, cwd=jumpcp_dir)
         run_command(feature_aggregation_normalization_cmd, cwd=jumpcp_dir)
         run_command(benchmark_cmd, cwd=jumpcp_dir)
     
     if config.get("RBC_MC", False):
-        rbc_mc_dir = os.path.join(BENCHMARKS_DIR, "rbc-mc")
+        rbc_mc_dir = os.path.join(BENCHMARKS_DIR, "RBC-MC")
         rbc_mc_cmd = (
             f"accelerate launch --num_processes=1 extraction.py "
             f"--model {config['MODEL_TYPE']} "

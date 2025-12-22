@@ -145,7 +145,7 @@ def main():
     model_instance.to(accelerator.device)
 
     if args.model == "channelvit":
-        model_instance.set_dataset("neuron", args.model_path)
+        model_instance.set_dataset("rbc-mc", args.model_path)
 
     # Extract embeddings
     embeddings = extract_embeddings(dataloader, model_instance, accelerator)

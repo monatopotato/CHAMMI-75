@@ -101,6 +101,25 @@ def main():
         run_command(feature_conversion_cmd, cwd=jumpcp_dir)
         run_command(feature_aggregation_normalization_cmd, cwd=jumpcp_dir)
         run_command(benchmark_cmd, cwd=jumpcp_dir)
+    
+    if config.get("RBC_MC", False):
+        rbc_mc_dir = os.path.join(BENCHMARKS_DIR, "rbc-mc")
+        rbc_mc_cmd = (
+            f"accelerate launch --num_processes=1 extraction.py "
+            f"--model {config['MODEL_TYPE']} "
+            f"--model_path {config['MODEL_PATH']} "
+            f"--output_folder {config['RBC_MC_FEATURES_PATH']} "
+            f"--image_folder {config['RBC_MC_IMAGES_PATH']} "
+        )
+        run_command(rbc_mc_cmd, cwd=rbc_mc_dir)
+
+        # Run scoring from benchmarks folder
+        benchmark_cmd = (
+            f'python regression.py'
+            f' --output_folder {config["RBC_MC_SCORE_PATH"]}'
+            f' --pkl_path {os.path.join(config["RBC_MC_FEATURES_PATH"], "embeddings.pkl")}'
+        )
+        run_command(benchmark_cmd, cwd=rbc_mc_dir)
 
 
 if __name__ == "__main__":

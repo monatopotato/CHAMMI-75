@@ -21,64 +21,20 @@ def fetch_embeddings_from_metadata(
     embedding_path: str, metadata: pl.DataFrame, model_name, study_name="idr0017"
 ):
     embedding_dict = {}
-
-    if "dinov2" in model_name:
-        for row in metadata.iter_rows(named=True):
-            plate_id = row["storage.zip"]
-            image_id = row["imaging.multi_channel_id"]
-            image_name_1 = row["storage.filename"]
-            image_name_2 = image_name_1.replace("DAPI", "Cy3")
-            plate_name = f"{plate_id}_features.safetensors"
-            plate_emb_path = os.path.join(embedding_path, plate_name)
-            plate_emb_dict = safe_open(plate_emb_path, framework="pt")
-            try:
-                channel_1 = plate_emb_dict.get_tensor(image_name_1)
-                channel_2 = plate_emb_dict.get_tensor(image_name_2)
-                image_emb = torch.cat([channel_1, channel_2])
-                embedding_dict[image_id] = image_emb
-            except:
-                print(f"Image ID {image_id} not found in {plate_emb_path}")
-                continue
-
-    else:
-        for idx, row in enumerate(metadata.iter_rows(named=True)):
-            plate_id = row["storage.zip"]
-            image_id = row["imaging.multi_channel_id"]
-            plate_name = f"{plate_id}_features.safetensors"
-            plate_emb_path = os.path.join(embedding_path, plate_name)
-            plate_emb_dict = safe_open(plate_emb_path, framework="pt")
-            try:
-                image_emb = plate_emb_dict.get_tensor(image_id)
-                embedding_dict[image_id] = image_emb
-            except:
-                print(f"Image ID {image_id} not found in {plate_emb_path}")
-                continue
-
-    return embedding_dict
-
-
-def fetch_dinov2_embeddings_from_metadata(
-    embedding_path: str, metadata: pl.DataFrame, study_name="idr0017"
-):
-    embedding_dict = {}
-
-    for row in tqdm(metadata.iter_rows(named=True)):
+    for idx, row in enumerate(metadata.iter_rows(named=True)):
         plate_id = row["storage.zip"]
         image_id = row["imaging.multi_channel_id"]
-        image_name_1 = row["storage.filename"]
-        image_name_2 = image_name_1.replace("DAPI", "Cy3")
         plate_name = f"{plate_id}_features.safetensors"
         plate_emb_path = os.path.join(embedding_path, plate_name)
         plate_emb_dict = safe_open(plate_emb_path, framework="pt")
-
-        channel_1 = plate_emb_dict.get_tensor(image_name_1).mean(dim=0)
-        channel_2 = plate_emb_dict.get_tensor(image_name_2).mean(dim=0)
-
-        image_emb = torch.cat([channel_1, channel_2])
-        embedding_dict[image_id] = image_emb
+        try:
+            image_emb = plate_emb_dict.get_tensor(image_id)
+            embedding_dict[image_id] = image_emb
+        except:
+            print(f"Image ID {image_id} not found in {plate_emb_path}")
+            continue
 
     return embedding_dict
-
 
 class WhiteningNormalizer(object):
     def __init__(self, controls, reg_param=1e-5):

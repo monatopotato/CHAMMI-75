@@ -92,6 +92,9 @@ def main():
         idr_cmd = f"python feature_extraction.py --model_path {config['MODEL_PATH']} --model_type {config['MODEL_TYPE']} --batch_size 2048 --images_folder {config['IDR_DATA_FOLDER']} --output_folder {config['IDR_FEATURES_PATH']} --num_workers {config['IDR_NUM_WORKERS']}"
         run_command(idr_cmd, cwd=idr17_dir)
 
+        benchmark_cmd = f"python idr0017_benchmark.py --features_dir {config['IDR_FEATURES_PATH']} --metadata_path {config['IDR_METADATA_PATH']} --save_dir {config['IDR_BENCHMARK_SAVE_DIR']}"
+        run_command(benchmark_cmd, cwd=idr17_dir)
+
     # JUMPCP Features
     if config.get("JUMPCP", False):
         jumpcp_dir = os.path.join(BENCHMARKS_DIR, "jumpcp1")

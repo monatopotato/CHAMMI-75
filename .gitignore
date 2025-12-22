@@ -186,3 +186,4 @@ models/channel_vit_simclr/wandb/
 
 benchmarks/idr0017_benchmark/workflow/.snakemake
 *pycache*
+/aws-tutorials/rbc-mc/

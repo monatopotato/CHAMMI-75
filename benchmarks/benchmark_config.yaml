@@ -42,6 +42,7 @@ CellPHIE_IMAGES_PATH: /scr/jpeters/c75_testing/datasets/neuron-features
 CellPHIE_FEATURES_PATH: /scr/jpeters/c75_testing/neuron
 CellPHIE_SCORE_PATH: /scr/jpeters/c75_testing/neuron
 CellPHIE_EMBED_DIM: 384 # per channel embedding dimension size for CellPHIE
+CellPHIE_PCA_GLOBAL: True # When set to True, uses a global PCA, when set to True assumes EMBED_DIM*14 embedding dimension and slices out per channel PCAs and concats them
 CellPHIE_BATCH_SIZE: 32
 CellPHIE_NUM_WORKERS: 10
 

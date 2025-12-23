@@ -136,6 +136,54 @@ class PerImageNormalize(nn.Module):
         return self.instance_norm(x)
 
 
+class HuggingFaceCHAMMI75(Model):
+    def __init__(self, device):
+        # Load model from Hugging Face
+        self.model = AutoModel.from_pretrained("CaicedoLab/CHAMMI-75", trust_remote_code=True)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model.to(device).eval()
+        print(f"✓ Model loaded on {device}")
+        self.feature_file = "pretrained_huggingface_chammi75_features.npy"
+        self.device = device
+        self.transform = torchvision.transforms.Compose(
+            [
+                SaturationNoiseInjector(),
+                PerImageNormalize(),
+                v2.Resize(size=(224, 224), antialias=True),
+            ]
+        )
+    def get_model(self):
+        return self.model, self.transform
+    
+    def get_patch_info(self):
+        patch_embed = self.model.patch_embed
+        # Access the Conv2d layer within PatchEmbed
+        conv_layer = patch_embed.proj
+
+        # Extract kernel size (patch size)
+        patch_size = conv_layer.kernel_size
+        patch_height, patch_width = patch_size
+        return patch_height, patch_width
+    
+    def to(self, device):
+        self.model = self.model.to(device)
+    
+    def __call__(self, images):
+        with torch.no_grad():
+            batch_feat = []
+            images = images.to(self.device)
+            for c in range(images.shape[1]):
+                single_channel = images[:, c, :, :].unsqueeze(1)
+                output = self.model.forward_features(single_channel)
+                feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
+
+                batch_feat.append(feat_temp)
+        return np.concatenate(batch_feat, axis=1)
+    
+
+
+
+
 class ViTClass:
     def __init__(self, weights_path: str, model_size: str, device):
         self.device = device
@@ -1021,6 +1069,8 @@ def get_model(
         model = ChannelVITMAE(
             model_path=model_path, model_size=model_size, device=device
         )
+    elif model_name == "huggingface_chammi75":
+        model = HuggingFaceCHAMMI75(device=device)
     else:
         raise ValueError(
             "Model not recognized. Please use 'mae', 'vit', 'dinov2', 'openphenom', 'simclr', 'chanvit_simclr' or 'chanvit_mae'."

@@ -140,7 +140,7 @@ def train_logistic_regression(
         model_params = {
             "max_iter": 1000,
             "random_state": 42,
-            "multi_class": "multinomial",
+            # "multi_class": "multinomial",
             "solver": "lbfgs",
             "C": 1.0,
         }

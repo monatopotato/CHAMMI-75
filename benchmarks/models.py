@@ -136,14 +136,14 @@ class PerImageNormalize(nn.Module):
         return self.instance_norm(x)
 
 
-class HuggingFaceCHAMMI75(Model):
+class MorphEm(Model):
     def __init__(self, device):
         # Load model from Hugging Face
-        self.model = AutoModel.from_pretrained("CaicedoLab/CHAMMI-75", trust_remote_code=True)
+        self.model = AutoModel.from_pretrained("CaicedoLab/MorphEm", trust_remote_code=True)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(device).eval()
         print(f"✓ Model loaded on {device}")
-        self.feature_file = "pretrained_huggingface_chammi75_features.npy"
+        self.feature_file = "pretrained_huggingface_morphem_features.npy"
         self.device = device
         self.transform = torchvision.transforms.Compose(
             [
@@ -1069,10 +1069,10 @@ def get_model(
         model = ChannelVITMAE(
             model_path=model_path, model_size=model_size, device=device
         )
-    elif model_name == "huggingface_chammi75":
-        model = HuggingFaceCHAMMI75(device=device)
+    elif model_name == "MorphEm":
+        model = MorphEm(device=device)
     else:
         raise ValueError(
-            "Model not recognized. Please use 'mae', 'vit', 'dinov2', 'openphenom', 'simclr', 'chanvit_simclr' or 'chanvit_mae'."
+            "Model not recognized. Please use 'MorphEm', 'mae', 'vit', 'dinov2', 'openphenom', 'simclr', 'chanvit_simclr' or 'chanvit_mae'."
         )
     return model

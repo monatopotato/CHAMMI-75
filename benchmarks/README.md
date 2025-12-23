@@ -3,24 +3,24 @@
 ## Benchmarks Description
 Here we provide the benchmarks showcased in CHAMMI-75. We have 6 benchmarks:
 
-#### CHAMMI (Chen et al., 2023)
+#### [CHAMMI](./CHAMMI/README.md) (Chen et al., 2023)
 CHAMMI is a channel adaptive benchmarking suite. It has 3 sub-datasets that contain 3, 4 and 5 channels. These are respectively tasks of cell cycle classificaion, protein localization, and compound matching. A weighted average of the out of distribution tasks generates the CHAMMI score. For example, if we call the score of HPA task 2 as HPA2, an equation to calculate the CHAMMI score is: $\frac{WTC2}{3}+\frac{(HPA2+HPA3)}{6}+\frac{(CP2 + CP3 + CP4)}{9}$.
 
-#### CellPHIE (Kang et al., 2025)
+#### [CellPHIE](./CellPHIE/README.md) (Kang et al., 2025)
 CellPHIE is a pooled genetic perturbation screen containing 14-channel images of single cells perturbed with one
 of 19 genes. In CellPHIE, models seek to identify these pertubations over control examples. 
 
-#### HPAv23 (Ouyang et al., 2019; Le et al., 2022)
+#### [HPAv23](./HPAv23/README.md) (Ouyang et al., 2019; Le et al., 2022)
 HPAv23 is a protein localization task. In this task, models must solve a 19 or 31 class classificaiton task to identify where the proteins are localizing. 
 
-#### JUMPCP (Chandrasekaran et al., 2023b)
+#### [JUMPCP](./JUMPCP/README.md) (Chandrasekaran et al., 2023b)
 JUMPCP is a compound screening benchmark. It contains 5 channel images, with the tasks of identifying pertubed compounds and of grouping compounds of biologically similar pertubations are clustered together.
 
-#### IDR0017 (Breinig et al., 2015) 
+#### [IDR0017](./IDR0017/README.md) (Breinig et al., 2015) 
 IDR0017 is a chemical-genetic interaction study which has the models trying to identify hits by ranking gene-compound combinations that are likely to have a large effect with respect to controls. Ground truth hits were obtained
 from the original study, and performance is evaluated using recall at the top 50 and 100.
 
-#### RBC-MC (Doan et al., 2020)
+#### [RBC-MC](./RBC-MC/README.md) (Doan et al., 2020)
 RBC-MC is bright-field study of red blood cells imaged with flow cytometry. In this task, models bucket cells into seven clinically relevant morphological categories
 associated with blood quality. 
 

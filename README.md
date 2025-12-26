@@ -15,7 +15,7 @@ Official Github repository of CHAMMI-75: first of its kind 2.8 million multi-cha
 
 ## Preprint Out Soon!
 
-Here is link for the preprint: [Link]
+Here is link for the preprint: [Link](https://arxiv.org/abs/2512.20833)
 
 ## Accessing the dataset
 

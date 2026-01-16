@@ -13,7 +13,7 @@ Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 
 
 Official Github repository of CHAMMI-75: first of its kind 2.8 million multi-channel image dataset of microscopy imaging pooled from 75 different sources. The aim is to accelerate investigation of generalizable channel-agnostic foundation models in the field of microscopy.
 
-## Preprint Out Soon!
+## Preprint
 
 Here is link for the preprint: [Link](https://arxiv.org/abs/2512.20833)
 

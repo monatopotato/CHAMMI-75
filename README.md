@@ -17,6 +17,17 @@ Official Github repository of CHAMMI-75: first of its kind 2.8 million multi-cha
 
 Here is link for the preprint: [Link](https://arxiv.org/abs/2512.20833)
 
+## How to Cite
+
+```
+@article{agrawal2025chammi,
+  title={CHAMMI-75: pre-training multi-channel models with heterogeneous microscopy images},
+  author={Agrawal, Vidit and Peters, John and Thompson, Tyler N and Sanian, Mohammad Vali and Pham, Chau and Moshkov, Nikita and Kazi, Arshad and Pillai, Aditya and Freeman, Jack and Kang, Byunguk and others},
+  journal={arXiv preprint arXiv:2512.20833},
+  year={2025}
+}
+```
+
 ## Accessing the dataset
 
 Please go to AWS and download the dataset from an S3 bucket: https://registry.opendata.aws/chammi/

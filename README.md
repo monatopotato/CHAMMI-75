@@ -29,6 +29,11 @@ url={https://openreview.net/forum?id=SLjqdj3LPk}
 }
 ```
 
+## MorphEm Model
+
+We are releasing a model called MorphEm trained on the CHAMMI-75 dataset using a bag-of-channels approach with the ViT Small architecture under the DINO training protocol. The model is available on Hugging Face: [Link](https://huggingface.co/CaicedoLab/MorphEm)
+
+
 ## Accessing the dataset
 
 Please go to AWS and download the dataset from an S3 bucket: https://registry.opendata.aws/chammi/

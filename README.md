@@ -13,18 +13,19 @@ Vidit Agrawal<sup>1, 2</sup>, John Peters<sup>1, 2</sup>, Tyler Thompson<sup>1, 
 
 Official Github repository of CHAMMI-75: first of its kind 2.8 million multi-channel image dataset of microscopy imaging pooled from 75 different sources. The aim is to accelerate investigation of generalizable channel-agnostic foundation models in the field of microscopy.
 
-## Preprint
-
-Here is link for the preprint: [Link](https://arxiv.org/abs/2512.20833)
-
 ## How to Cite
 
+The work has been published at the International Conference on Learning Representations (ICLR) 2026: [Link](https://openreview.net/forum?id=SLjqdj3LPk)
+
+
 ```
-@article{agrawal2025chammi,
-  title={CHAMMI-75: pre-training multi-channel models with heterogeneous microscopy images},
-  author={Agrawal, Vidit and Peters, John and Thompson, Tyler N and Sanian, Mohammad Vali and Pham, Chau and Moshkov, Nikita and Kazi, Arshad and Pillai, Aditya and Freeman, Jack and Kang, Byunguk and others},
-  journal={arXiv preprint arXiv:2512.20833},
-  year={2025}
+@inproceedings{
+agrawal2026chammi,
+title={{CHAMMI}-75: pre-training multi-channel models with heterogeneous microscopy images},
+author={Vidit Agrawal and John Peters and Tyler N. Thompson and Mohammad Vali Sanian and Chau Pham and Nikita Moshkov and Arshad Kazi and Aditya Pillai and Jack Freeman and Byunguk Kang and Samouil L. Farhi and Ernest Fraenkel and Ron M. Stewart and Lassi Paavolainen and Bryan A. Plummer and Juan C. Caicedo},
+booktitle={The Fourteenth International Conference on Learning Representations},
+year={2026},
+url={https://openreview.net/forum?id=SLjqdj3LPk}
 }
 ```
 

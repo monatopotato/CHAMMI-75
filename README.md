@@ -21,7 +21,7 @@ The work has been published at the International Conference on Learning Represen
 ```
 @inproceedings{
 agrawal2026chammi,
-title={{CHAMMI}-75: pre-training multi-channel models with heterogeneous microscopy images},
+title={{CHAMMI}-75: Pre-training multi-channel models with heterogeneous microscopy images},
 author={Vidit Agrawal and John Peters and Tyler N. Thompson and Mohammad Vali Sanian and Chau Pham and Nikita Moshkov and Arshad Kazi and Aditya Pillai and Jack Freeman and Byunguk Kang and Samouil L. Farhi and Ernest Fraenkel and Ron M. Stewart and Lassi Paavolainen and Bryan A. Plummer and Juan C. Caicedo},
 booktitle={The Fourteenth International Conference on Learning Representations},
 year={2026},

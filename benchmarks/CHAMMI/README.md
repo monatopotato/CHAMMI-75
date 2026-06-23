@@ -42,7 +42,7 @@ The script generates feature files extracted from the model. These files are sav
 
 ### Command
 ```bash
-python -c "from morphem.benchmark import run_benchmark; run_benchmark('Dataset path', 'Output Directory', 'Features directory', 'pretrained_vit_features.npy')"
+python -c "from CHAMMI.benchmark import run_benchmark; run_benchmark('Dataset path', 'Output Directory', 'Features directory', 'pretrained_vit_features.npy')"
 ```
 
 ### Parameter Documentation

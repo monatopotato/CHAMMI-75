@@ -158,7 +158,7 @@ def get_parser():
         choices=["small", "base", "large"],
     )
     parser.add_argument(
-        "--model_path", type=str, help="Path to the model weights", required=False
+        "--model_path", type=str, help="Path to the model weights", required=False, default=""
     )
 
     return parser

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import torchvision.transforms.v2.functional as F
 import sys
 import os
+from sklearn.decomposition import PCA
 
 # Add the parent directory (CHAMMI-75) to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -188,20 +189,18 @@ class MorphEm(Model):
 
                 # Spatial token
                 spatial_channel_list = []
+                patch_tokens_np = patch_tokens.cpu().numpy()
                 for b in range(B):
                     # 196,384
-                    X = patch_tokens[b]
-                    
-                    # center features
-                    X_centered = X - X.mean(dim=0, keepdim=True)
-                    
-                    # find svd for projections
-                    U, S, V = torch.linalg.svd(X_centered, full_matrices=False)
-                    
-                    # project to top 2 pcs; 196x2
-                    X_pca = torch.mm(X_centered, V[:, :2])
-                    
-                    # flatten spatial and PCA; 14x14x2
+                    X = patch_tokens_np[b]
+
+                    # 2,384
+                    pca = PCA(n_components=2)
+
+                    # 2,196
+                    X_pca = pca.fit_transform(X)
+
+                    # ,384
                     spatial_channel_list.append(X_pca.flatten())
                 
                 spatial_token = torch.stack(spatial_channel_list).view(B, 1, 1, 392).cpu().numpy()

@@ -171,14 +171,45 @@ class MorphEm(Model):
     def __call__(self, images):
         with torch.no_grad():
             batch_feat = []
-            images = images.to(self.device)
+            batch_avg = []
+            batch_spatial = []
+            B = images.shape[0]
             for c in range(images.shape[1]):
                 single_channel = images[:, c, :, :].unsqueeze(1)
                 output = self.model.forward_features(single_channel)
+                # extract patch token
+                patch_tokens = output["x_norm_patchtokens"]
                 feat_temp = output["x_norm_clstoken"].cpu().detach().numpy()
 
+                # Average token 1x1x384
+                avg_token = patch_tokens.mean(dim=1)
+                avg_token = avg_token.view(B, 1, 1, 384).cpu().numpy()
+                batch_avg.append(avg_token)
+
+                # Spatial token
+                spatial_channel_list = []
+                for b in range(B):
+                    # 196,384
+                    X = patch_tokens[b]
+                    
+                    # center features
+                    X_centered = X - X.mean(dim=0, keepdim=True)
+                    
+                    # find svd for projections
+                    U, S, V = torch.linalg.svd(X_centered, full_matrices=False)
+                    
+                    # project to top 2 pcs; 196x2
+                    X_pca = torch.mm(X_centered, V[:, :2])
+                    
+                    # flatten spatial and PCA; 14x14x2
+                    spatial_channel_list.append(X_pca.flatten())
+                
+                spatial_token = torch.stack(spatial_channel_list).view(B, 1, 1, 392).cpu().numpy()
+                batch_spatial.append(spatial_token)
+
                 batch_feat.append(feat_temp)
-        return np.concatenate(batch_feat, axis=1)
+                
+        return np.concatenate(batch_feat, axis=1), np.concatenate(batch_avg, axis=3), np.concatenate(batch_spatial, axis=3)
     
 
 
